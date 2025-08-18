@@ -92,10 +92,15 @@ def train_tiny_cnn_v2_with_meta_hook(max_epochs: int = 2):
     set_seed(42)
     device = Device.MPS
 
-    cfg = TinyCNNNode(
-        num_classes=10,
+    node = TinyCNNNode(
+        input_channels=1,
+        mlp=MLPNode(
+            dims=[128, 10],
+            activation=ReluNode(),
+            last_activation=NoopNode(),
+        ),
     )
-    model = cfg.build()
+    model = node.build()
 
     train_loader = DataLoader(
         build_mnist(MNISTConfig(split="train")),

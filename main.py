@@ -8,6 +8,6 @@ setup_logging(log_level="INFO", structured=False)
 
 
 if __name__ == "__main__":
-    results = train_tiny_cnn_v2()
-    print(results)
+    results = train_tiny_cnn_v2_with_meta_hook()
+    print(results.train_epoch, results.eval_epoch)
     # results = train_tiny_cnn_baseline()
