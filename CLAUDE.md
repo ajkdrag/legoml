@@ -34,38 +34,61 @@ uv sync --group dev
 
 ## Architecture Overview
 
-### Configuration System
-The project centers around a configuration-driven architecture:
+### Node-Based Configuration System
+The project centers around a node-based architecture using dataclasses:
 
-- **BaseConfig** (`src/legoml/configs/base.py`): Abstract base classes for all configurations
-- **Composable Configs**: Model, Dataset, Optimizer, Scheduler configs that implement `build()` methods
-- **JSON Serializable**: All configs can be saved/loaded as JSON for experiment tracking
+- **Node** (`src/legoml/interfaces/nodes.py`): Abstract base class for all configurable components with `build()` methods
+- **Composable Nodes**: Model, Dataset, Optimizer, Scheduler nodes that can be easily composed and forked
+- **JSON Serializable**: All nodes can be saved/loaded via `to_dict()` for experiment tracking
 
-### Core Components
+### Core Node Types
 
-1. **Trainers** (`src/legoml/configs/trainers/`):
-   - `SupervisedTrainer`: Handles training loops, validation, checkpointing
-   - Built from `SupervisedTrainerConfig` which composes model, dataset, optimizer configs
+1. **BlockNode**: Base for models, layers and blocks
+   - `ModelNode`: Neural network models (e.g., `TinyCNNNode`)
+   - `ActivationNode`: Activation functions 
+   - `PoolingNode`: Pooling layers
 
-2. **Models** (`src/legoml/configs/models/`):
-   - Modular CNN architectures built from conv blocks
-   - Example: `TinyCNN` with configurable conv blocks and FC layers
+2. **Training Components**:
+   - `OptimizerNode`: Optimizers with parameter binding
+   - `SchedulerNode`: Learning rate schedulers
+   - `MetricNode`: Training and evaluation metrics
 
-3. **Datasets** (`src/legoml/configs/datasets/`):
-   - Currently supports MNIST
+3. **Data Components**:
+   - `DatasetNode`: Dataset definitions 
+   - `DataLoaderNode`: DataLoader configurations
+   - `CollatorNode`: Custom data collation
+
+### Core Implementation Areas
+
+1. **Tasks** (`src/legoml/tasks/`):
+   - `TrainerForImageClassificationNode`: Complete training pipeline with metrics, checkpointing
+   - `EvaluatorForImageClassificationNode`: Evaluation-only pipeline for testing
+
+2. **Models** (`src/legoml/models/`):
+   - Modular CNN architectures built from composable blocks
+   - Example: `TinyCNNNode` with configurable conv blocks and FC layers
+
+3. **Datasets** (`src/legoml/datasets/`):
+   - Currently supports MNIST classification
    - Handles data loading, augmentation, train/val/test splits
 
-4. **Building Blocks** (`src/legoml/configs/blocks/`):
+4. **Building Blocks** (`src/legoml/blocks/`):
    - Reusable components: convolution blocks, activations, pooling
-   - Composable via configuration
+   - Composable via node configuration
+   - Encoders for more complex architectural patterns
+
+5. **Metrics** (`src/legoml/metrics/`):
+   - Standardized metric interface (`Metric` ABC)
+   - Classification metrics (accuracy, loss tracking)
+   - Extensible for custom metrics
 
 ### Testing and Evaluation
 
 The framework provides comprehensive testing capabilities:
 
-1. **SupervisedTrainer.test()**: Test method for existing trainers
-2. **TestConfig/TestTrainer** (`src/legoml/configs/trainers/test.py`):
-   - Dedicated config for test-only evaluation
+1. **TrainerForImageClassification.train()**: Complete training pipeline with built-in evaluation
+2. **EvaluatorForImageClassificationNode** (`src/legoml/tasks/eval_img_clf.py`):
+   - Dedicated node for test-only evaluation
    - Loads models from checkpoints
    - Supports detailed metrics including per-class metrics and confusion matrices
 3. **Checkpoint Utilities** (`src/legoml/utils/checkpoints.py`):
@@ -73,16 +96,20 @@ The framework provides comprehensive testing capabilities:
    - `load_model_from_checkpoint()`: Load model weights from checkpoint
    - `checkpoint_info()`: Display checkpoint metadata
    - `find_latest_checkpoint()`: Find most recent checkpoint in directory
+4. **Builder Utilities** (`src/legoml/utils/builders.py`):
+   - `build_model()`: Construct models from nodes with checkpoint loading
+   - `build_dataloader()`: Create dataloaders from dataset and dataloader nodes
+   - `build_optimizer_and_scheduler()`: Initialize optimizers and schedulers
+   - `build_metrics()`: Initialize metric objects from metric nodes
 
 ### Experiment Pattern
 Experiments are defined as functions that:
-1. **Training**: Create a `SupervisedTrainerConfig`, call `config.build()`, run `trainer.train()`
-2. **Testing**: Create a `TestConfig`, call `config.build()`, run `tester.test()`
+1. **Training**: Create a `TrainerForImageClassificationNode`, call `node.build()`, run `trainer.train()`
+2. **Testing**: Create an `EvaluatorForImageClassificationNode`, call `node.build()`, run `evaluator.eval()`
 
 Example experiments in `experiments.py`:
-- `train_tiny_cnn_baseline()`: Training experiment
-- `test_tiny_cnn_baseline()`: Testing experiment (auto-finds latest checkpoint)
-- `test_from_checkpoint()`: Generic testing function
+- `train_tiny_cnn_baseline()`: Training experiment using nodes
+- Node composition allows easy experimentation with different architectures and hyperparameters
 
 ### Logging and Monitoring
 - Uses `structlog` for structured logging
@@ -97,9 +124,34 @@ Example experiments in `experiments.py`:
 ## File Structure
 - `main.py`: Entry point that runs the baseline experiment
 - `src/legoml/`: Main package
-  - `configs/`: All configuration classes organized by component type
-  - `experiments.py`: Experiment definitions
-  - `utils/`: Logging and utility functions
+  - `interfaces/`: Base node classes and metric interfaces
+    - `nodes.py`: Node base classes (Node, BlockNode, ModelNode, etc.)
+    - `metrics.py`: Metric abstract base class
+  - `tasks/`: Training and evaluation pipelines
+    - `train_img_clf.py`: Image classification training node
+    - `eval_img_clf.py`: Image classification evaluation node
+  - `models/`: Neural network model implementations
+    - `tinycnn.py`: TinyCNN model node and implementation
+  - `blocks/`: Reusable building blocks
+    - `convs.py`: Convolutional block nodes
+    - `activations.py`: Activation function nodes
+    - `pooling.py`: Pooling layer nodes
+    - `encoders/`: More complex encoder architectures
+  - `datasets/`: Dataset implementations
+    - `mnist_clf.py`: MNIST classification dataset node
+  - `metrics/`: Metric implementations
+    - `accuracy.py`: Accuracy metrics
+    - `classification.py`: Classification-specific metrics
+    - `loss.py`: Loss tracking metrics
+  - `dataloaders.py`: DataLoader node implementations
+  - `optimizers.py`: Optimizer node implementations
+  - `schedulers.py`: Learning rate scheduler node implementations
+  - `experiments.py`: Experiment definitions using nodes
+  - `utils/`: Utility functions
+    - `builders.py`: Builder functions for nodes
+    - `checkpoints.py`: Checkpoint utilities
+    - `logging.py`: Structured logging setup
+    - `misc.py`: Miscellaneous utilities
 - `data/`: Dataset storage (MNIST included)
 - `models/`: Saved model checkpoints
 
@@ -107,5 +159,8 @@ Example experiments in `experiments.py`:
 
 - No formal test suite currently exists
 - Uses lazy linear layers (`nn.LazyLinear`) to automatically infer dimensions
-- Configuration validation happens at build time
-- All configs inherit from `BaseConfig` and implement abstract `build()` methods
+- Node validation happens at build time via abstract `build()` methods
+- All nodes inherit from `Node` base class and are dataclass-based
+- Nodes support forking (`fork()`) to create variations with modified parameters
+- Node composition enables modular experiment design
+- Interface-based design with `Metric` ABC for extensible metrics

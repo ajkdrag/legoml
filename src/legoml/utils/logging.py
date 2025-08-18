@@ -1,7 +1,6 @@
 """Centralized logging configuration for the LegoML framework."""
 
 import logging
-from pathlib import Path
 import structlog
 
 
@@ -13,7 +12,6 @@ def bind(**kwargs):
 
 def setup_logging(
     log_level: str = "INFO",
-    log_file: Path | None = None,
     structured: bool = True,
 ) -> structlog.BoundLogger:
     """
@@ -52,4 +50,3 @@ def setup_logging(
 
 def get_logger(name: str) -> structlog.BoundLogger:
     return structlog.get_logger(name)
-

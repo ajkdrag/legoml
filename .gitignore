@@ -14,3 +14,11 @@ data/
 
 # checkpoints
 *.pt
+
+.claude/
+.mypy_cache/
+
+*.pt
+*.pth
+
+CLAUDE.md
