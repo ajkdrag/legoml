@@ -1,6 +1,17 @@
 import torch
 import os
-import shutil
+from pathlib import Path
+
+
+def load_checkpoint(checkpoint_path: str | Path, device: str | torch.device = "cpu") -> dict:
+    """Load a checkpoint from disk."""
+    checkpoint_path = Path(checkpoint_path)
+    if not checkpoint_path.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+    
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    print(f"Checkpoint loaded from {checkpoint_path}")
+    return checkpoint
 
 
 def save_checkpoint(
@@ -8,7 +19,7 @@ def save_checkpoint(
     optimizer,
     scheduler,
     epoch,
-    run_name,
+    basename,
     save_dir,
     is_best,
     metadata,
@@ -22,8 +33,8 @@ def save_checkpoint(
         "epoch": epoch,
         "metadata": metadata,
     }
-    checkpoint_path = os.path.join(save_dir, f"{run_name}_checkpoint.pth")
-    best_model_path = os.path.join(save_dir, f"{run_name}_best_model.pth")
+    checkpoint_path = os.path.join(save_dir, f"{basename}_ep_{epoch}.pth")
+    best_model_path = os.path.join(save_dir, f"{basename}_best_ep_{epoch}.pth")
 
     if is_best:
         torch.save(state, best_model_path)

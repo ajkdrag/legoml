@@ -3,10 +3,10 @@ from typing import List
 
 import torch.nn as nn
 
-from .activations import ReluNode
-from .base import Node, NoopNode
-from .convs import ConvBlockNode
-from .mlp import MLPNode
+from legoml.nn.activations import ReluNode
+from legoml.nn.base import Node, NoopNode
+from legoml.nn.convs import ConvBlockNode
+from legoml.nn.mlp import MLPNode
 
 
 @dataclass

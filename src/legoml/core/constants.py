@@ -1,12 +1,13 @@
-import enum
+from enum import Enum
 
 
-class Mode(enum.Enum):
+class Mode(Enum):
     TRAIN = "train"
     EVAL = "eval"
 
 
-class Device(enum.Enum):
+class Device(Enum):
     CPU = "cpu"
     CUDA = "cuda"
     MPS = "mps"
+

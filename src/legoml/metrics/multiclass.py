@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 import torch
 
-from legoml.core.contracts.metric import Metric, Scalars
+from legoml.core.metric import Metric
 
 
 @dataclass
@@ -14,11 +12,14 @@ class MultiClassAccuracy(Metric):
         self.correct = 0.0
         self.total = 0.0
 
-    def update(self, *, outputs: torch.Tensor, targets: torch.Tensor) -> None:
-        preds = outputs.argmax(dim=1)
-        self.correct += (preds == targets).sum().item()
-        self.total += targets.numel()
+    def update(self, output) -> None:
+        assert isinstance(output.predictions, torch.Tensor)
+        assert isinstance(output.targets, torch.Tensor)
 
-    def compute(self) -> Scalars:
+        preds = output.predictions.argmax(dim=1)
+        self.correct += (preds == output.targets).sum().item()
+        self.total += output.targets.numel()
+
+    def compute(self):
         result = self.correct / self.total if self.total else 0.0
         return {self.name: result}

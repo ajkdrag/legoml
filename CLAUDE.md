@@ -2,165 +2,108 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Development Commands
 
-LegoML is a modular PyTorch machine learning framework designed around a configuration-driven architecture. The project uses a "Lego blocks" approach where neural network components, optimizers, schedulers, and datasets are defined as configurable building blocks that can be easily composed.
+### Dependencies and Environment
+- Uses `uv` for dependency management
+- Install dependencies: `uv sync`
+- Add dev dependencies: `uv add --dev <package>`
+- Python dependencies include PyTorch, pytorch-ignite, structlog, torchvision
 
-## Key Commands
+### Testing
+- Run tests: `python -m unittest tests/test_tracking.py`
+- Or run all tests: `python -m unittest discover tests`
 
 ### Running Experiments
-```bash
-# Run the main training experiment
-python main.py
+- Main entry point: `python main.py`
+- Individual experiments located in `src/legoml/exp_*.py` files
 
-# Run testing on trained models
-python -c "from legoml.experiments import test_tiny_cnn_baseline; test_tiny_cnn_baseline()"
-
-# Test specific checkpoint
-python -c "from legoml.experiments import test_tiny_cnn_baseline; test_tiny_cnn_baseline('models/tiny_cnn_baseline_epoch_1.pt')"
-
-# The project uses uv for dependency management
-uv sync  # Install dependencies
-uv run python main.py  # Run with uv
-```
-
-### Development Setup
-```bash
-# Install dependencies (including dev dependencies)
-uv sync --group dev
-
-# The project uses structured logging - check logs for experiment progress
-```
+### Type Checking
+- Uses mypy for type checking: `mypy src/`
 
 ## Architecture Overview
 
-### Node-Based Configuration System
-The project centers around a node-based architecture using dataclasses:
+LegoML is a PyTorch-based machine learning framework built around a composable, event-driven architecture:
 
-- **Node** (`src/legoml/interfaces/nodes.py`): Abstract base class for all configurable components with `build()` methods
-- **Composable Nodes**: Model, Dataset, Optimizer, Scheduler nodes that can be easily composed and forked
-- **JSON Serializable**: All nodes can be saved/loaded via `to_dict()` for experiment tracking
+### Core Components
 
-### Core Node Types
+**Engine (`src/legoml/core/engine.py`)**
+- Central training loop orchestrator
+- Executes user-defined step functions (train_step, eval_step)
+- Fires events at key lifecycle points (ENGINE_START, EPOCH_START, STEP_START, etc.)
+- Manages callbacks and state
 
-1. **BlockNode**: Base for models, layers and blocks
-   - `ModelNode`: Neural network models (e.g., `TinyCNNNode`)
-   - `ActivationNode`: Activation functions 
-   - `PoolingNode`: Pooling layers
+**Context (`src/legoml/core/context.py`)**  
+- Holds shared training state: model, optimizer, loss_fn, device, scheduler, scaler
+- Passed to step functions and callbacks for access to training components
 
-2. **Training Components**:
-   - `OptimizerNode`: Optimizers with parameter binding
-   - `SchedulerNode`: Learning rate schedulers
-   - `MetricNode`: Training and evaluation metrics
+**Callbacks (`src/legoml/core/callback.py`)**
+- Protocol-based callback system for extending training behavior
+- Key callbacks: EvalOnEpochEndCallback, MetricsCallback
+- Respond to engine events (on_epoch_start, on_step_end, etc.)
 
-3. **Data Components**:
-   - `DatasetNode`: Dataset definitions 
-   - `DataLoaderNode`: DataLoader configurations
-   - `CollatorNode`: Custom data collation
+### Neural Network Components
 
-### Core Implementation Areas
+**Composable Nodes (`src/legoml/nn/`)**
+- Node-based architecture for building models
+- Base classes in `base.py`, specific implementations in subdirectories
+- Examples: MLPNode, TinyCNNNode, ReluNode, NoopNode
+- Nodes have `.build()` method to construct PyTorch modules
 
-1. **Tasks** (`src/legoml/tasks/`):
-   - `TrainerForImageClassificationNode`: Complete training pipeline with metrics, checkpointing
-   - `EvaluatorForImageClassificationNode`: Evaluation-only pipeline for testing
+### Data Pipeline
 
-2. **Models** (`src/legoml/models/`):
-   - Modular CNN architectures built from composable blocks
-   - Example: `TinyCNNNode` with configurable conv blocks and FC layers
+**Data Loading (`src/legoml/data/`)**
+- MNIST dataset utilities in `mnist.py`
+- Batch processing utilities in `batches.py`
 
-3. **Datasets** (`src/legoml/datasets/`):
-   - Currently supports MNIST classification
-   - Handles data loading, augmentation, train/val/test splits
+### Metrics and Tracking
 
-4. **Building Blocks** (`src/legoml/blocks/`):
-   - Reusable components: convolution blocks, activations, pooling
-   - Composable via node configuration
-   - Encoders for more complex architectural patterns
+**Metrics (`src/legoml/metrics/`)**
+- Multiclass accuracy, binary classification, F1 scores
+- Update/compute pattern for accumulating metrics across batches
 
-5. **Metrics** (`src/legoml/metrics/`):
-   - Standardized metric interface (`Metric` ABC)
-   - Classification metrics (accuracy, loss tracking)
-   - Extensible for custom metrics
+**Experiment Tracking (`src/legoml/utils/track.py`)**
+- Context manager `run()` for experiment tracking
+- Logs scalars, text, and saves model artifacts
+- Creates structured directory with logs/scalars.csv and artifacts
 
-### Testing and Evaluation
+### Key Patterns
 
-The framework provides comprehensive testing capabilities:
+1. **Structured Step Outputs**: Step functions return `StepOutput` protocol objects (e.g., `SupervisedStepOutput`) instead of dicts for type safety
+2. **Event-Driven**: Callbacks respond to engine lifecycle events
+3. **Context Passing**: Shared state passed through Context dataclass
+4. **Composable Models**: Build models from reusable Node components
+5. **Structured Logging**: Use structlog with `get_logger(__name__)` pattern
+6. **Backward Compatibility**: Engine automatically converts dict returns to `DictStepOutput` wrappers
 
-1. **TrainerForImageClassification.train()**: Complete training pipeline with built-in evaluation
-2. **EvaluatorForImageClassificationNode** (`src/legoml/tasks/eval_img_clf.py`):
-   - Dedicated node for test-only evaluation
-   - Loads models from checkpoints
-   - Supports detailed metrics including per-class metrics and confusion matrices
-3. **Checkpoint Utilities** (`src/legoml/utils/checkpoints.py`):
-   - `load_checkpoint()`: Load checkpoint files
-   - `load_model_from_checkpoint()`: Load model weights from checkpoint
-   - `checkpoint_info()`: Display checkpoint metadata
-   - `find_latest_checkpoint()`: Find most recent checkpoint in directory
-4. **Builder Utilities** (`src/legoml/utils/builders.py`):
-   - `build_model()`: Construct models from nodes with checkpoint loading
-   - `build_dataloader()`: Create dataloaders from dataset and dataloader nodes
-   - `build_optimizer_and_scheduler()`: Initialize optimizers and schedulers
-   - `build_metrics()`: Initialize metric objects from metric nodes
+### StepOutput System
 
-### Experiment Pattern
-Experiments are defined as functions that:
-1. **Training**: Create a `TrainerForImageClassificationNode`, call `node.build()`, run `trainer.train()`
-2. **Testing**: Create an `EvaluatorForImageClassificationNode`, call `node.build()`, run `evaluator.eval()`
+The framework uses a `StepOutput` protocol for structured communication between step functions and callbacks:
 
-Example experiments in `experiments.py`:
-- `train_tiny_cnn_baseline()`: Training experiment using nodes
-- Node composition allows easy experimentation with different architectures and hyperparameters
+- `SupervisedStepOutput`: For supervised learning with loss, predictions, targets, metadata
+- `UnsupervisedStepOutput`: For unsupervised learning with reconstructions, embeddings
+- `DictStepOutput`: Backward compatibility wrapper for dict-based returns
 
-### Logging and Monitoring
-- Uses `structlog` for structured logging
-- Automatic experiment tracking with metrics
-- Model checkpointing every N epochs
-- Progress bars via `tqdm`
+### Example Training Flow
+```python
+from legoml.core.step_output import SupervisedStepOutput
 
-### Device Support
-- Automatically detects available devices (CUDA/MPS/CPU)
-- Default uses MPS on macOS for Apple Silicon acceleration
+def train_step(engine, batch, context) -> SupervisedStepOutput:
+    # Training logic using context.model, context.optimizer, etc.
+    return SupervisedStepOutput(
+        loss=loss,
+        predictions=outputs.detach().cpu(),
+        targets=targets.detach().cpu(),
+        metadata={"loss_scalar": loss.item()}
+    )
 
-## File Structure
-- `main.py`: Entry point that runs the baseline experiment
-- `src/legoml/`: Main package
-  - `interfaces/`: Base node classes and metric interfaces
-    - `nodes.py`: Node base classes (Node, BlockNode, ModelNode, etc.)
-    - `metrics.py`: Metric abstract base class
-  - `tasks/`: Training and evaluation pipelines
-    - `train_img_clf.py`: Image classification training node
-    - `eval_img_clf.py`: Image classification evaluation node
-  - `models/`: Neural network model implementations
-    - `tinycnn.py`: TinyCNN model node and implementation
-  - `blocks/`: Reusable building blocks
-    - `convs.py`: Convolutional block nodes
-    - `activations.py`: Activation function nodes
-    - `pooling.py`: Pooling layer nodes
-    - `encoders/`: More complex encoder architectures
-  - `datasets/`: Dataset implementations
-    - `mnist_clf.py`: MNIST classification dataset node
-  - `metrics/`: Metric implementations
-    - `accuracy.py`: Accuracy metrics
-    - `classification.py`: Classification-specific metrics
-    - `loss.py`: Loss tracking metrics
-  - `dataloaders.py`: DataLoader node implementations
-  - `optimizers.py`: Optimizer node implementations
-  - `schedulers.py`: Learning rate scheduler node implementations
-  - `experiments.py`: Experiment definitions using nodes
-  - `utils/`: Utility functions
-    - `builders.py`: Builder functions for nodes
-    - `checkpoints.py`: Checkpoint utilities
-    - `logging.py`: Structured logging setup
-    - `misc.py`: Miscellaneous utilities
-- `data/`: Dataset storage (MNIST included)
-- `models/`: Saved model checkpoints
+# Create context with shared components
+context = Context(model=model, optimizer=optimizer, loss_fn=loss_fn, device=device)
 
-## Development Notes
+# Create engine and add callbacks
+trainer = Engine(train_step, context)
+trainer.callbacks.append(MetricsCallback(metrics=[MultiClassAccuracy()]))
 
-- No formal test suite currently exists
-- Uses lazy linear layers (`nn.LazyLinear`) to automatically infer dimensions
-- Node validation happens at build time via abstract `build()` methods
-- All nodes inherit from `Node` base class and are dataclass-based
-- Nodes support forking (`fork()`) to create variations with modified parameters
-- Node composition enables modular experiment design
-- Interface-based design with `Metric` ABC for extensible metrics
+# Run training loop
+trainer.loop(train_loader, max_epochs=10)
+```
