@@ -9,10 +9,11 @@ wheels/
 # Virtual environments
 .venv
 
-# data dirs
-data/
+# raw data dirs
+raw_data/
 
 # checkpoints
+checkpoints/
 *.pt
 
 .claude/
@@ -20,3 +21,6 @@ data/
 
 *.pt
 *.pth
+
+# exp runs
+runs/

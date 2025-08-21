@@ -11,6 +11,7 @@ from legoml.nn.mlp import MLPNode
 
 @dataclass
 class TinyCNNNode(Node):
+    name: str | None = "TinyCNN"
     input_channels: int = 1
     conv_blocks: List[ConvBlockNode] = field(
         default_factory=lambda: [

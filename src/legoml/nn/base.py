@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 class Node(ABC):
     """Base class with common functionality."""
 
-    seed: int = 42
+    name: str | None = None
 
     def to_dict(self):
         return asdict(self)

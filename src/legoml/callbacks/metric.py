@@ -40,7 +40,6 @@ class MetricsCallback(Callback):
             try:
                 result = metric.compute()
                 state.metrics.update(result)
+                logger.info(f"Metric: {result}")
             except Exception as e:
-                logger.error(
-                    f"Failed to compute metric {metric.__class__.__name__}: {e}"
-                )
+                logger.error(f"Failed to compute metric {metric.name}: {e}")
