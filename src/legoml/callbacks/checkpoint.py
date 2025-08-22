@@ -65,8 +65,8 @@ class CheckpointCallback(Callback):
     @staticmethod
     def load_into(
         context: Context,
-        state: EngineState | None,
         path: str | Path,
+        state: EngineState | None = None,
         map_location: str | None = "cpu",
     ) -> Dict[str, Any]:
         ckpt = torch.load(path, map_location=map_location)

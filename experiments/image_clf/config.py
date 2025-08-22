@@ -9,3 +9,4 @@ class Config:
     max_epochs: int = 2
     train_log_interval: int = 100  # steps
     eval_log_interval: int = 100  # steps
+    data_root: str = "./data"

@@ -12,6 +12,7 @@ def get_dls(config: Config) -> tuple[DataLoader, ...]:
         MNISTConfig(
             split="train",
             augmentation=config.train_augmentation,
+            data_root=config.data_root,
         )
     )
 
@@ -19,6 +20,7 @@ def get_dls(config: Config) -> tuple[DataLoader, ...]:
         MNISTConfig(
             split="test",
             augmentation=False,
+            data_root=config.data_root,
         )
     )
 

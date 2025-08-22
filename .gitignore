@@ -24,3 +24,6 @@ checkpoints/
 
 # exp runs
 runs/
+
+# ipython stuff
+.ipynb_checkpoints/
