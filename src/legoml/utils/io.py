@@ -22,7 +22,7 @@ def load_model(
     ckpt = load_checkpoint(checkpoint_path, device=device)
     model_sd = ckpt.get("model")
     if model_sd:
-        model.load_state_dict(ckpt)
+        model.load_state_dict(model_sd)
     return ckpt
 
 

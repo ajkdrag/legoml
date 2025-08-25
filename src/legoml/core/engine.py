@@ -40,11 +40,11 @@ class Engine:
         self.state.dataloader = dataloader
         self.fire(Events.ENGINE_START)
 
-        for epoch in range(self.state.epoch, max_epochs):
+        for epoch in range(self.state.epoch, max_epochs + 1):
             self.state.epoch = epoch
             self.fire(Events.EPOCH_START)
 
-            for idx, batch in enumerate(dataloader):
+            for idx, batch in enumerate(dataloader, start=1):
                 self.state.local_step = idx
                 self.fire(Events.STEP_START, batch=batch)
                 op = self.fn(self, batch, self.context)

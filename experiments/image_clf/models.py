@@ -4,15 +4,28 @@ from legoml.nn.mlp import Linear__LnAct
 
 
 class CNN__MLP_tiny_28x28(nn.Sequential):
-    def __init__(self):
+    def __init__(self, c1=1):
         super().__init__(
-            Conv_3x3__BnAct__Pool(1, 32),  # [32, 14, 14]
+            Conv_3x3__BnAct__Pool(c1, 32),  # [32, 14, 14]
             Conv_3x3__BnAct(32, 32),  # [32, 14, 14]
             Conv_3x3__BnAct__Pool(32, 64),  # [64, 7, 7]
             Conv_3x3__BnAct(64, 64),  # [64, 7, 7]
             nn.Flatten(),  # [64 * 7 * 7]
             Linear__LnAct(64 * 7 * 7, 128),  # [128]
             Linear__LnAct(128, 10),  # [10]
+        )
+
+
+class CNN__MLP_tiny_32x32(nn.Sequential):
+    def __init__(self, c1=1):
+        super().__init__(
+            Conv_3x3__BnAct__Pool(c1, 32),  # [32, 16, 16]
+            Conv_3x3__BnAct(32, 32),  # [32, 16, 16]
+            Conv_3x3__BnAct__Pool(32, 64),  # [64, 8, 8]
+            Conv_3x3__BnAct(64, 64),  # [64, 8, 8]
+            nn.Flatten(),  # [64 * 8 * 8]
+            Linear__LnAct(64 * 8 * 8, 64),  # [128]
+            Linear__LnAct(64, 10),  # [10]
         )
 
 

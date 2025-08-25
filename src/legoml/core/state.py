@@ -5,19 +5,19 @@ from legoml.core.step_output import StepOutput
 
 @dataclass(kw_only=True)
 class EngineState:
-    epoch: int = 0
+    epoch: int = 1
     max_epochs: int = 1
-    global_step: int = 0  # global step
-    local_step: int = 0  # local step
+    global_step: int = 1  # global step
+    local_step: int = 1  # local step
     output: StepOutput = field(default_factory=StepOutput)  # output of the last step
     metrics: dict[str, float] = field(default_factory=dict)
     dataloader: DataLoader | None = None
     should_stop: bool = False
 
     def reset(self):
-        self.epoch = 0
-        self.global_step = 0
-        self.local_step = 0
+        self.epoch = 1
+        self.global_step = 1
+        self.local_step = 1
         self.output = StepOutput()
         self.metrics = {}
         self.dataloader = None

@@ -6,8 +6,8 @@ import torch.optim.lr_scheduler as lrs
 import torchsummary
 
 from experiments.image_clf.config import Config
-from experiments.image_clf.data import get_dls
-from experiments.image_clf.models import CNN__MLP_tiny_28x28
+from experiments.image_clf.data import get_cifar10_dls
+from experiments.image_clf.models import CNN__MLP_tiny_32x32
 from experiments.image_clf.steps import eval_step, train_step
 from legoml.callbacks.checkpoint import CheckpointCallback
 from legoml.callbacks.eval import EvalOnEpochEndCallback
@@ -22,7 +22,7 @@ from legoml.utils.track import run
 logger = get_logger(__name__)
 device = torch.device("mps")
 set_seed(42)
-config = Config(train_augmentation=True)
+config = Config(train_augmentation=True, max_epochs=5)
 
 
 def build_optim_and_sched(
@@ -41,11 +41,11 @@ def build_optim_and_sched(
     return optimizer, scheduler
 
 
-model = CNN__MLP_tiny_28x28()
+train_dl, eval_dl = get_cifar10_dls(config)
+model = CNN__MLP_tiny_32x32(c1=3)
 optim, sched = build_optim_and_sched(config, model)
-train_dl, eval_dl = get_dls(config)
 
-with run(base_dir=Path("runs").joinpath("train_img_clf")) as sess:
+with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
     train_context = Context(
         config=config,
         model=model,
@@ -77,7 +77,9 @@ with run(base_dir=Path("runs").joinpath("train_img_clf")) as sess:
             MetricsCallback(metrics=[MultiClassAccuracy("train_accuracy")]),
             CheckpointCallback(
                 dirpath=sess.get_artifact_dir().joinpath("checkpoints"),
+                save_every_n_epochs=9999,
                 save_on_engine_end=True,
+                best_fn=lambda: evaluator.state.metrics["eval_accuracy"],
             ),
         ]
     )

@@ -1,6 +1,7 @@
 import torch
 from legoml.core.engine import Engine
 from legoml.core.context import Context
+from legoml.core.state import EngineState
 from legoml.core.step_output import StepOutput
 from legoml.utils.logging import get_logger
 from legoml.data.batches import ClassificationBatch

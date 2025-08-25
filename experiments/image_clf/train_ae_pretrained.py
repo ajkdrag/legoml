@@ -16,6 +16,7 @@ from legoml.callbacks.metric import MetricsCallback
 from legoml.core.context import Context
 from legoml.core.engine import Engine
 from legoml.metrics.multiclass import MultiClassAccuracy
+from legoml.utils.io import load_model
 from legoml.utils.logging import get_logger
 from legoml.utils.seed import set_seed
 from legoml.utils.track import run
@@ -45,9 +46,9 @@ def build_optim_and_sched(
 ae_model = Autoencoder()
 model = AEBackbone__MLP(ae_model[0])
 ae_pt_path = (
-    "./runs/autoencoder/run_20250824_193922/" + "artifacts/checkpoints/ckpt_last.pt"
+    "./runs/autoencoder/run_20250825_151055/" + "artifacts/checkpoints/ckpt_last.pt"
 )
-_ = CheckpointCallback.load_into_model(ae_model, ae_pt_path, freeze=True)
+load_model(ae_model, ae_pt_path, device)
 
 optim, sched = build_optim_and_sched(config, model)
 train_dl, eval_dl = get_dls(config)
