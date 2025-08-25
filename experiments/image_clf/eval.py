@@ -7,7 +7,6 @@ from experiments.image_clf.config import Config
 from experiments.image_clf.data import get_dls
 from experiments.image_clf.models import CNN__MLP_tiny_28x28
 from experiments.image_clf.steps import eval_step
-from legoml.callbacks.checkpoint import CheckpointCallback
 from legoml.callbacks.metric import MetricsCallback
 from legoml.core.context import Context
 from legoml.core.engine import Engine
@@ -46,13 +45,7 @@ with run(base_dir=Path("runs").joinpath("eval_img_clf")) as sess:
         + "artifacts/checkpoints/ckpt_last.pt"
     )
 
-    CheckpointCallback.load_into(
-        context=eval_context,
-        state=evaluator.state,
-        path=checkpoint_path,
-        map_location=device.type,
-    )
-
+    evaluator.load_checkpoint(checkpoint_path=checkpoint_path)
     evaluator.state.reset()
     evaluator.loop(eval_dl, config.max_epochs)
 

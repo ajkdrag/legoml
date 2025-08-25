@@ -4,6 +4,7 @@ from legoml.core.context import Context
 from legoml.core.event import EVENT_TO_METHOD, Events
 from legoml.core.state import EngineState
 from legoml.core.step_output import StepOutput
+from legoml.utils.io import load_checkpoint
 
 
 class Engine:
@@ -60,6 +61,31 @@ class Engine:
                 break
 
         self.fire(Events.ENGINE_END)
+
+    def load_checkpoint(self, checkpoint_path: str):
+        ckpt = load_checkpoint(checkpoint_path, device=self.context.device)
+        model_sd = ckpt.get("model")
+        if model_sd is not None:
+            self.context.model.load_state_dict(model_sd)
+        opt_sd = ckpt.get("optimizer")
+        if opt_sd is not None and self.context.optimizer is not None:
+            self.context.optimizer.load_state_dict(opt_sd)  # type: ignore[arg-type]
+        sch_sd = ckpt.get("scheduler")
+        if sch_sd is not None and self.context.scheduler is not None:
+            self.context.scheduler.load_state_dict(sch_sd)  # type: ignore[arg-type]
+        scaler_sd = ckpt.get("scaler")
+        if scaler_sd is not None and self.context.scaler is not None:
+            self.context.scaler.load_state_dict(scaler_sd)  # type: ignore[arg-type]
+
+        if self.state is not None:
+            self.state.epoch = int(ckpt.get("epoch", self.state.epoch))
+            self.state.global_step = int(
+                ckpt.get("global_step", self.state.global_step)
+            )
+            self.state.local_step = int(ckpt.get("local_step", self.state.local_step))
+            self.state.max_epochs = int(ckpt.get("max_epochs", self.state.max_epochs))
+
+        return ckpt
 
     def to_dict(self):
         """dict[str, str|int|float] representation of the engine"""

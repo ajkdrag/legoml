@@ -1,5 +1,4 @@
 import torch.nn as nn
-from collections import OrderedDict
 from legoml.nn.convs import Conv_3x3__BnAct, Conv_3x3__BnAct__Pool
 from legoml.nn.mlp import Linear__LnAct
 
@@ -25,6 +24,10 @@ class AEBackbone__MLP(nn.Module):
             Linear__LnAct(128, 64),
             Linear__LnAct(64, 10),
         )
+
+    def freeze_encoder(self):
+        for param in self.encoder.parameters():
+            param.requires_grad = False
 
     def forward(self, x):
         x = self.encoder(x)  # [128]

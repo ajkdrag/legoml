@@ -27,3 +27,10 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/legoml", "experiments"]
 
+[tool.basedpyright]
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+reportMissingParameterType = false
+reportUnknownParameterType = false
+typeCheckingMode = "standard"
+
