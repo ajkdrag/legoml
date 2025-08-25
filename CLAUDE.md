@@ -44,10 +44,8 @@ LegoML is a PyTorch-based machine learning framework built around a composable, 
 
 **Composable Nodes (`src/legoml/nn/`)**
 
-- Node-based architecture for building models
-- Base classes in `base.py`, specific implementations in subdirectories
-- Examples: MLPNode, TinyCNNNode, ReluNode, NoopNode
-- Nodes have `.build()` method to construct PyTorch modules
+- Multiples of 2 wherever possible
+- Common reusable building blocks and design patterns such as Depthwise Separable Convolutions, Residual Connections, etc.
 
 ### Data Pipeline
 

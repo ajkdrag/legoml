@@ -3,15 +3,13 @@ from legoml.core.engine import Engine
 from legoml.core.context import Context
 from legoml.core.step_output import StepOutput
 from legoml.utils.logging import get_logger
-from legoml.data.batches import ClassificationBatch
+from legoml.data.batches import AutoencoderBatch
 from experiments.image_clf.config import Config
 
 logger = get_logger(__name__)
 
 
-def train_step(
-    engine: Engine, batch: ClassificationBatch, context: Context
-) -> StepOutput:
+def train_step(engine: Engine, batch: AutoencoderBatch, context: Context) -> StepOutput:
     model = context.model
     loss_fn = context.loss_fn
     optimizer = context.optimizer
@@ -21,7 +19,7 @@ def train_step(
 
     assert optimizer is not None, "Optimizer is not set"
 
-    inputs, targets = batch.inputs.to(device), batch.targets.to(device)
+    inputs, targets = batch.inputs.to(device), batch.inputs.to(device)
 
     model.train()
     optimizer.zero_grad(set_to_none=True)
@@ -44,22 +42,16 @@ def train_step(
             step=engine.state.local_step,
             mode="train",
         )
-    return StepOutput(
-        loss=loss,
-        predictions=outputs.detach().cpu(),
-        targets=targets.detach().cpu(),
-    )
+    return StepOutput(loss=loss)
 
 
-def eval_step(
-    engine: Engine, batch: ClassificationBatch, context: Context
-) -> StepOutput:
+def eval_step(engine: Engine, batch: AutoencoderBatch, context: Context) -> StepOutput:
     model = context.model
     loss_fn = context.loss_fn
     device = context.device
     config: Config = context.config
 
-    inputs, targets = batch.inputs.to(device), batch.targets.to(device)
+    inputs, targets = batch.inputs.to(device), batch.inputs.to(device)
 
     model.eval()
     with torch.no_grad():
@@ -73,8 +65,4 @@ def eval_step(
             mode="eval",
         )
 
-    return StepOutput(
-        loss=loss,
-        predictions=outputs.detach().cpu(),
-        targets=targets.detach().cpu(),
-    )
+    return StepOutput(loss=loss)

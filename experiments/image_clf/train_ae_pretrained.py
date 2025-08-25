@@ -7,7 +7,8 @@ import torchsummary
 
 from experiments.image_clf.config import Config
 from experiments.image_clf.data import get_dls
-from experiments.image_clf.models import CNN__MLP_tiny_28x28
+from experiments.image_clf.models import AEBackbone__MLP
+from experiments.autoencoders.models import Autoencoder
 from experiments.image_clf.steps import eval_step, train_step
 from legoml.callbacks.checkpoint import CheckpointCallback
 from legoml.callbacks.eval import EvalOnEpochEndCallback
@@ -41,11 +42,17 @@ def build_optim_and_sched(
     return optimizer, scheduler
 
 
-model = CNN__MLP_tiny_28x28()
+ae_model = Autoencoder()
+model = AEBackbone__MLP(ae_model[0])
+ae_pt_path = (
+    "./runs/autoencoder/run_20250824_193922/" + "artifacts/checkpoints/ckpt_last.pt"
+)
+_ = CheckpointCallback.load_into_model(ae_model, ae_pt_path, freeze=True)
+
 optim, sched = build_optim_and_sched(config, model)
 train_dl, eval_dl = get_dls(config)
 
-with run(base_dir=Path("runs").joinpath("train_img_clf")) as sess:
+with run(base_dir=Path("runs").joinpath("train_img_clf_ae_backbone")) as sess:
     train_context = Context(
         config=config,
         model=model,
@@ -55,6 +62,7 @@ with run(base_dir=Path("runs").joinpath("train_img_clf")) as sess:
         device=device,
         # scaler=torch.GradScaler(device=device.type), # slow on M1 air
     )
+
     trainer = Engine(train_step, train_context)
 
     eval_context = Context(

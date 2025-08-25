@@ -90,3 +90,18 @@ class CheckpointCallback(Callback):
             state.max_epochs = int(ckpt.get("max_epochs", state.max_epochs))
 
         return ckpt
+
+    @staticmethod
+    def load_into_model(
+        model: torch.nn.Module,
+        path: str | Path,
+        freeze: bool = False,
+    ) -> Dict[str, Any]:
+        ckpt = torch.load(path)
+        model_sd = ckpt.get("model")
+        if model_sd is not None:
+            model.load_state_dict(model_sd)
+        if freeze:
+            for param in model.parameters():
+                param.requires_grad = False
+        return ckpt

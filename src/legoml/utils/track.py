@@ -1,10 +1,8 @@
-import csv
 import json
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Generator, Literal
-from legoml.core.state import EngineState
 
 from legoml.utils.logging import get_logger
 
@@ -18,7 +16,6 @@ class ExperimentSession:
         self.run_dir = self.base_dir / self.run_name
         self.artifact_dir = self.run_dir / "artifacts"
         self.logs_dir = self.run_dir / "logs"
-        self._scalars_file = self.logs_dir / "scalars.csv"
         self._metadata = {}
         self._is_active = False
 
@@ -57,60 +54,16 @@ class ExperimentSession:
     def get_logs_dir(self) -> Path:
         return self.logs_dir
 
-    def log_scalar(
-        self,
-        name: str,
-        value: float,
-        step: int | None = None,
-    ) -> None:
-        if not self._is_active:
-            logger.warning("Session not active, scalar not logged", name=name)
-            return
-
-        row = {
-            "timestamp": datetime.now().isoformat(),
-            "name": name,
-            "value": value,
-            "step": step,
-        }
-
-        file_exists = self._scalars_file.exists()
-        with self._scalars_file.open("a", newline="") as f:
-            writer = csv.DictWriter(
-                f, fieldnames=["timestamp", "name", "value", "step"]
-            )
-            if not file_exists:
-                writer.writeheader()
-            writer.writerow(row)
-
-        logger.debug("Logged scalar", name=name, value=value, step=step)
-
-    def log_text(self, name: str, text: str, step: int | None = None) -> None:
+    def log_text(self, name: str, text: str) -> None:
         if not self._is_active:
             logger.warning("Session not active, text not logged", name=name)
             return
 
         text_file = self.logs_dir / f"{name}.txt"
         with text_file.open("a") as f:
-            timestamp = datetime.now().isoformat()
-            f.write(f"[{timestamp}] Step {step}: {text}\n")
+            f.write(text + "\n")
 
-        logger.debug("Logged text", name=name, step=step)
-
-    def log_state(self, state: EngineState) -> None:
-        if not self._is_active:
-            logger.warning("Session not active, engine not logged")
-            return
-
-        step = state.global_step
-        epoch = state.epoch
-
-        if state.metrics:
-            for name, value in state.metrics.items():
-                self.log_scalar(name, value, step)
-
-        self.log_scalar("epoch", epoch, step)
-        logger.debug("Logged engine state", step=step, epoch=epoch)
+        logger.debug("Logged text", name=name)
 
     def log_params(self, params: dict[str, Any]) -> None:
         if not self._is_active:
@@ -148,4 +101,3 @@ def run(
     session = ExperimentSession(run_name, base_dir)
     with session as sess:
         yield sess
-

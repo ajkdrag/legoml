@@ -1,38 +1,28 @@
-from pathlib import Path
 from dataclasses import asdict
+from pathlib import Path
+
 import torch
 
+from experiments.image_clf.config import Config
+from experiments.image_clf.data import get_dls
+from experiments.image_clf.models import CNN__MLP_tiny_28x28
+from experiments.image_clf.steps import eval_step
 from legoml.callbacks.checkpoint import CheckpointCallback
 from legoml.callbacks.metric import MetricsCallback
 from legoml.core.context import Context
 from legoml.core.engine import Engine
 from legoml.metrics.multiclass import MultiClassAccuracy
-from legoml.nn.activations import ReluNode
-from legoml.nn.base import NoopNode
-from legoml.nn.composites.tinycnn import TinyCNNNode
-from legoml.nn.mlp import MLPNode
 from legoml.utils.logging import get_logger
 from legoml.utils.seed import set_seed
 from legoml.utils.track import run
-
-from experiments.image_clf.config import Config
-from experiments.image_clf.data import get_dls
-from experiments.image_clf.steps import eval_step
 
 logger = get_logger(__name__)
 device = torch.device("mps")
 set_seed(42)
 config = Config(max_epochs=1)
 
-node = TinyCNNNode(
-    input_channels=1,
-    mlp=MLPNode(
-        dims=[128, 10],
-        activation=ReluNode(),
-        last_activation=NoopNode(),
-    ),
-)
-model = node.build().to(device)
+
+model = CNN__MLP_tiny_28x28().to(device)
 train_dl, eval_dl = get_dls(config)
 
 
@@ -51,7 +41,11 @@ with run(base_dir=Path("runs").joinpath("eval_img_clf")) as sess:
         ],
     )
 
-    checkpoint_path = "./checkpoints/ckpt_epoch_1.pt"
+    checkpoint_path = (
+        "./runs/train_img_clf/run_20250824_183653/"
+        + "artifacts/checkpoints/ckpt_last.pt"
+    )
+
     CheckpointCallback.load_into(
         context=eval_context,
         state=evaluator.state,
@@ -63,5 +57,5 @@ with run(base_dir=Path("runs").joinpath("eval_img_clf")) as sess:
     evaluator.loop(eval_dl, config.max_epochs)
 
     sess.log_params({"exp_config": asdict(config)})
-    sess.log_params({"model": asdict(node)})
+    sess.log_text("model", str(model))
     sess.log_params({"evaluator": evaluator.to_dict()})

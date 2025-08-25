@@ -1,7 +1,9 @@
+import torch
 from dataclasses import dataclass
 from typing import Literal
 from torch.utils.data import Dataset
 from torchvision import datasets, transforms as T
+from legoml.data.batches import ClassificationBatch, AutoencoderBatch
 
 
 @dataclass
@@ -32,3 +34,14 @@ def build_mnist(cfg: MNISTConfig) -> Dataset:
         download=cfg.download,
         transform=T.Compose(ts),
     )
+
+
+def classification_collate(batch: list[tuple[torch.Tensor, int]]):
+    inputs = torch.stack([x for x, _ in batch], dim=0)
+    targets = torch.tensor([y for _, y in batch], dtype=torch.int64)
+    return ClassificationBatch(inputs=inputs, targets=targets)
+
+
+def autoencoder_collate(batch: list[tuple[torch.Tensor, int]]):
+    inputs = torch.stack([x for x, _ in batch], dim=0)
+    return AutoencoderBatch(inputs=inputs)
