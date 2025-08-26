@@ -1,12 +1,11 @@
 import torch
-import torch.nn as nn
 import torch.optim.lr_scheduler as lrs
 import torchsummary
 from pathlib import Path
 
 from dataclasses import asdict
 from experiments.autoencoders.config import Config
-from experiments.autoencoders.data import get_dls
+from experiments.data_utils import create_dataloaders
 from experiments.autoencoders.steps import train_step
 from experiments.autoencoders.models import Autoencoder
 from legoml.callbacks.checkpoint import CheckpointCallback
@@ -40,7 +39,7 @@ def build_optim_and_sched(
 
 model = Autoencoder()
 optim, sched = build_optim_and_sched(config, model)
-train_dl, eval_dl = get_dls(config)
+train_dl, eval_dl = create_dataloaders("mnist", config, "autoencoder")
 
 with run(base_dir=Path("runs").joinpath("autoencoder")) as sess:
     train_context = Context(

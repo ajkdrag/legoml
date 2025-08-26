@@ -4,7 +4,7 @@ from pathlib import Path
 import torch
 
 from experiments.image_clf.config import Config
-from experiments.image_clf.data import get_dls
+from experiments.data_utils import create_dataloaders
 from experiments.image_clf.models import CNN__MLP_tiny_28x28
 from experiments.image_clf.steps import eval_step
 from legoml.callbacks.metric import MetricsCallback
@@ -22,7 +22,7 @@ config = Config(max_epochs=1)
 
 
 model = CNN__MLP_tiny_28x28().to(device)
-train_dl, eval_dl = get_dls(config)
+train_dl, eval_dl = create_dataloaders("mnist", config, "classification")
 
 
 with run(base_dir=Path("runs").joinpath("eval_img_clf")) as sess:
