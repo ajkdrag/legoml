@@ -34,5 +34,6 @@ def log_step_loss(engine: Engine, loss: torch.Tensor, mode: str, log_interval: i
             f"Loss: {loss.item()}",
             step=engine.state.local_step,
             mode=mode,
+            epoch=engine.state.epoch,
         )
 

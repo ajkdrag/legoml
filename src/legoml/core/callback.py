@@ -5,7 +5,18 @@ from legoml.core.state import EngineState
 
 
 def implements(*method_names):
-    """Decorator to mark which callback methods a class implements."""
+    """Dec
+    orator
+    to
+    mark
+    which
+    callba
+    ck met
+    hods a
+    class
+    implem
+    ents.
+    """
 
     def decorator(cls):
         cls._implemented_methods = set(method_names)
@@ -16,48 +27,257 @@ def implements(*method_names):
 
 class Callback:
     """
-    Protocol defining the callback interface for engine events.
-    All methods are optional - callbacks only need to implement the events they care about.
+    Pro
+    tocol
+    defini
+    ng the
+    callba
+    ck int
+    erface
+    for
+    engine
+events.
+    All
+    method
+    s are
+    option
+    al - c
+    allbac
+    ks
+    only
+    need
+    to
+implement
+    the
+    events
+    they
+    care
+    about.
     """
 
     _implemented_methods: Set[str]
 
     def state_dict(self) -> Dict[str, Any]:
-        """Return callback state for checkpointing."""
+        """R
+        et
+        ur
+        n
+        ca
+        ll
+        ba
+        ck
+        st
+        at
+        e
+        fo
+        r
+        ch
+        ec
+        kp
+        oi
+        nt
+        in
+        g.
+        """
         return {}
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
-        """Load callback state from checkpoint."""
+        """L
+        oa
+        d
+        ca
+        ll
+        ba
+        ck
+        st
+        at
+        e
+        fr
+        om
+        ch
+        ec
+        kp
+        oi
+        nt
+        .
+        """
         pass
 
     def on_engine_start(self, context: Context, state: EngineState) -> None:
-        """Called when the engine starts training."""
+        """C
+        al
+        le
+        d
+        wh
+        en
+        th
+        e
+        en
+        gi
+        ne
+        st
+        ar
+        ts
+        tr
+        ai
+        ni
+        ng
+        .
+        """
         pass
 
     def on_engine_end(self, context: Context, state: EngineState) -> None:
-        """Called when the engine finishes training."""
+        """C
+        al
+        le
+        d
+        wh
+        en
+        th
+        e
+        en
+        gi
+        ne
+        fi
+        ni
+        sh
+        es
+        tr
+        ai
+        ni
+        ng
+        .
+        """
         pass
 
     def on_epoch_start(self, context: Context, state: EngineState) -> None:
-        """Called at the start of each epoch."""
+        """C
+        al
+        le
+        d
+        at
+        th
+        e
+        st
+        ar
+        t
+        of
+        ea
+        ch
+        ep
+        oc
+        h.
+        """
         pass
 
     def on_epoch_end(self, context: Context, state: EngineState) -> None:
-        """Called at the end of each epoch."""
+        """C
+        al
+        le
+        d
+        at
+        th
+        e
+        en
+        d
+        of
+        ea
+        ch
+        ep
+        oc
+        h.
+        """
         pass
 
     def on_step_start(self, context: Context, state: EngineState, batch: Any) -> None:
-        """Called before processing each batch."""
+        """C
+        al
+        le
+        d
+        be
+        fo
+        re
+        pr
+        oc
+        es
+        si
+        ng
+        ea
+        ch
+        ba
+        tc
+        h.
+        """
         pass
 
     def on_step_end(self, context: Context, state: EngineState, batch: Any) -> None:
-        """Called after processing each batch. Step outputs available in state.outputs."""
+        """C
+        al
+        le
+        d
+        af
+        te
+        r
+        pr
+        oc
+        es
+        si
+        ng
+        ea
+        ch
+        ba
+        tc
+        h.
+        St
+        ep
+        ou
+        tp
+        ut
+        s
+available
+        in
+        st
+        at
+        e.
+        ou
+        tp
+        ut
+        s.
+        """
         pass
 
     def on_backward_start(self, context: Context, state: EngineState) -> None:
-        """Called before backward pass."""
+        """C
+        al
+        le
+        d
+        be
+        fo
+        re
+        ba
+        ck
+        wa
+        rd
+        pa
+        ss
+        .
+        """
         pass
 
     def on_backward_end(self, context: Context, state: EngineState) -> None:
-        """Called after backward pass."""
+        """C
+        al
+        le
+        d
+        af
+        te
+        r
+        ba
+        ck
+        wa
+        rd
+        pa
+        ss
+        .
+        """
         pass

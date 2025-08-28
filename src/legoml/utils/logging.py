@@ -1,4 +1,11 @@
-"""Centralized logging configuration for the LegoML framework."""
+"""Central
+ized
+logging co
+nfiguratio
+n for the
+LegoML
+framework.
+"""
 
 import logging
 import structlog
@@ -15,7 +22,15 @@ def setup_logging(
     structured: bool = True,
 ) -> structlog.BoundLogger:
     """
-    Setup structured logging for the framework.
+    Set
+    up str
+    ucture
+    d logg
+    ing
+    for
+    the fr
+    amewor
+    k.
 
     Args:
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)

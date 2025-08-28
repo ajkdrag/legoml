@@ -23,7 +23,48 @@ class TimingCallback(Callback):
         output_dir: str | Path = "./timing_logs",
     ):
         """
-        Callback for measuring step execution times and identifying performance bottlenecks.
+        C
+        al
+        lb
+        ac
+        k
+        fo
+        r
+        me
+        as
+        ur
+        in
+        g
+        st
+        ep
+        ex
+        ec
+        ut
+        io
+        n
+        ti
+        me
+        s
+        an
+        d
+        id
+        en
+        ti
+        fy
+        in
+        g
+        pe
+        rf
+        or
+        ma
+        nc
+        e
+        bo
+        tt
+        le
+        ne
+        ck
+        s.
 
         Args:
             log_interval: How often to log timing statistics (in steps)
@@ -183,7 +224,29 @@ class TimingCallback(Callback):
             logger.info(f"Detailed timing data saved to {csv_file}")
 
     def get_statistics(self) -> Dict:
-        """Get current timing statistics as a dictionary."""
+        """G
+        et
+        cu
+        rr
+        en
+        t
+        ti
+        mi
+        ng
+        st
+        at
+        is
+        ti
+        cs
+        as
+        a
+        di
+        ct
+        io
+        na
+        ry
+        .
+        """
         if not self.step_times:
             return {}
 

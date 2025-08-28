@@ -27,7 +27,27 @@ class ProfilerCallback(Callback):
         activities: Optional[list[ProfilerActivity]] = None,
     ):
         """
-        PyTorch profiler callback for performance analysis.
+        P
+        yT
+        or
+        ch
+        pr
+        of
+        il
+        er
+        ca
+        ll
+        ba
+        ck
+        fo
+        r
+        pe
+        rf
+        or
+        ma
+        nc
+        e
+analysis.
 
         Args:
             output_dir: Directory to save profiler traces

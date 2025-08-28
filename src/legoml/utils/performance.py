@@ -12,19 +12,65 @@ logger = get_logger(__name__)
 
 
 class PerformanceTracker:
-    """Thread-local performance tracking for detailed timing analysis."""
+    """Thr
+    ead-
+    local
+    perfor
+    mance
+    tracki
+    ng for
+    detail
+    ed
+    timing
+analysis.
+    """
 
     def __init__(self):
         self.timings: Dict[str, list] = defaultdict(list)
         self.current_step_timings: Dict[str, float] = {}
 
     def add_timing(self, operation: str, duration: float):
-        """Add a timing measurement for an operation."""
+        """A
+        dd
+        a
+        ti
+        mi
+        ng
+        me
+        as
+        ur
+        em
+        en
+        t
+        fo
+        r
+        an
+        op
+        er
+        at
+        io
+        n.
+        """
         self.timings[operation].append(duration)
         self.current_step_timings[operation] = duration
 
     def get_summary(self) -> Dict[str, Dict[str, float]]:
-        """Get timing summary statistics."""
+        """G
+        et
+        ti
+        mi
+        ng
+        su
+        mm
+        ar
+        y
+        st
+        at
+        is
+        ti
+        cs
+        .
+        """
         summary = {}
         for op, times in self.timings.items():
             if times:
@@ -38,13 +84,44 @@ class PerformanceTracker:
         return summary
 
     def get_current_step_summary(self) -> Dict[str, float]:
-        """Get timing for the current step only."""
+        """G
+        et
+        ti
+        mi
+        ng
+        fo
+        r
+        th
+        e
+        cu
+        rr
+        en
+        t
+        st
+        ep
+        on
+        ly
+        .
+        """
         return {
             op: time_sec * 1000 for op, time_sec in self.current_step_timings.items()
         }
 
     def reset_current_step(self):
-        """Reset current step timings."""
+        """R
+        es
+        et
+        cu
+        rr
+        en
+        t
+        st
+        ep
+        ti
+        mi
+        ng
+        s.
+        """
         self.current_step_timings = {}
 
 
@@ -55,7 +132,13 @@ _perf_tracker = PerformanceTracker()
 @contextmanager
 def timer(operation_name: str, enabled: bool = True):
     """
-    Context manager for timing code blocks.
+    Con
+    text m
+    anager
+    for
+    timing
+    code b
+    locks.
 
     Args:
         operation_name: Name of the operation being timed
@@ -79,22 +162,51 @@ def timer(operation_name: str, enabled: bool = True):
 
 
 def get_performance_summary() -> Dict[str, Dict[str, float]]:
-    """Get overall performance summary across all operations."""
+    """Get
+    overal
+    l perf
+    ormanc
+    e summ
+    ary
+    across
+    all
+    operat
+    ions.
+    """
     return _perf_tracker.get_summary()
 
 
 def get_current_step_timings() -> Dict[str, float]:
-    """Get timings for the current step."""
+    """Get
+    timing
+    s for
+    the cu
+    rrent
+    step.
+    """
     return _perf_tracker.get_current_step_summary()
 
 
 def reset_current_step_timings():
-    """Reset current step timings."""
+    """Res
+    et cur
+    rent
+    step t
+    imings
+    .
+    """
     _perf_tracker.reset_current_step()
 
 
 def log_performance_summary():
-    """Log a summary of all performance timings."""
+    """Log
+    a summ
+    ary of
+    all pe
+    rforma
+    nce ti
+    mings.
+    """
     summary = get_performance_summary()
     if not summary:
         logger.info("No performance data collected")
@@ -115,19 +227,92 @@ def log_performance_summary():
 
 
 class MPSMonitor:
-    """Monitor MPS (Metal Performance Shaders) performance and memory usage."""
+    """Mon
+    itor
+    MPS
+    (Metal
+    Perfor
+    mance
+    Shader
+    s) per
+    forman
+    ce
+    and
+    memory
+    usage.
+    """
 
     @staticmethod
     def is_mps_available() -> bool:
-        """Check if MPS is available."""
+        """C
+        he
+        ck
+        if
+        MP
+        S
+        is
+        av
+        ai
+        la
+        bl
+        e.
+        """
         return torch.backends.mps.is_available()
 
     @staticmethod
     def get_memory_info() -> Dict[str, Any]:
         """
-        Get MPS memory information.
-        Note: MPS doesn't have torch.mps.memory_* functions like CUDA,
-        so we use system memory info instead.
+        G
+        et
+        MP
+        S
+        me
+        mo
+        ry
+        in
+        fo
+        rm
+        at
+        io
+        n.
+Note: MPS
+        do
+        es
+        n'
+        t
+        ha
+        ve
+        to
+        rc
+        h.
+        mp
+        s.
+        me
+        mo
+        ry
+        _*
+        fu
+        nc
+        ti
+        on
+        s
+like CUDA,
+        so
+        we
+        us
+        e
+        sy
+        st
+        em
+        me
+        mo
+        ry
+        in
+        fo
+        in
+        st
+        ea
+        d.
         """
         if not MPSMonitor.is_mps_available():
             return {}
@@ -143,7 +328,19 @@ class MPSMonitor:
 
     @staticmethod
     def log_memory_usage():
-        """Log current memory usage."""
+        """L
+        og
+        cu
+        rr
+        en
+        t
+        me
+        mo
+        ry
+        us
+        ag
+        e.
+        """
         info = MPSMonitor.get_memory_info()
         if info:
             logger.info(
@@ -155,14 +352,57 @@ class MPSMonitor:
     @staticmethod
     def detect_mps_fallback() -> bool:
         """
-        Detect if MPS fallback is enabled.
-        This checks the environment variable used by PyTorch.
+        D
+        et
+        ec
+        t
+        if
+        MP
+        S
+        fa
+        ll
+        ba
+        ck
+        is
+        en
+        ab
+        le
+        d.
+This
+        ch
+        ec
+        ks
+        th
+        e
+        en
+        vi
+        ro
+        nm
+        en
+        t
+        va
+        ri
+        ab
+        le
+        us
+        ed
+        by
+PyTorch.
         """
         return os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK", "0") == "1"
 
 
 class DeviceTransferTimer:
-    """Helper for timing data transfers to device."""
+    """Hel
+    per
+    for
+    timing
+    data t
+    ransfe
+    rs to
+    device
+    .
+    """
 
     def __init__(self, device: torch.device):
         self.device = device
@@ -170,12 +410,47 @@ class DeviceTransferTimer:
 
     @contextmanager
     def time_transfer(self, operation: str = "device_transfer"):
-        """Time a device transfer operation."""
+        """T
+        im
+        e
+        a
+        de
+        vi
+        ce
+        tr
+        an
+        sf
+        er
+        op
+        er
+        at
+        io
+        n.
+        """
         with timer(f"{operation}_to_{self.device.type}"):
             yield
 
     def transfer_batch(self, batch, operation: str = "batch_to_device"):
-        """Transfer a batch to device with timing."""
+        """T
+        ra
+        ns
+        fe
+        r
+        a
+        ba
+        tc
+        h
+        to
+        de
+        vi
+        ce
+        wi
+        th
+        ti
+        mi
+        ng
+        .
+        """
         with self.time_transfer(operation):
             if isinstance(batch, (list, tuple)):
                 return [item.to(self.device) for item in batch]
@@ -185,7 +460,19 @@ class DeviceTransferTimer:
 
 def create_performance_context_managers(device: torch.device, enabled: bool = True):
     """
-    Create a set of commonly used context managers for performance timing.
+    Cre
+    ate a
+    set of
+    common
+    ly
+    used c
+    ontext
+    manage
+    rs for
+    perfor
+    mance
+    timing
+    .
 
     Args:
         device: The device being used for training
@@ -205,7 +492,20 @@ def create_performance_context_managers(device: torch.device, enabled: bool = Tr
 
 
 def log_step_breakdown():
-    """Log the breakdown of time spent in different operations for the current step."""
+    """Log
+    the br
+    eakdow
+    n of
+    time
+    spent
+    in dif
+    ferent
+operations
+    for
+    the cu
+    rrent
+    step.
+    """
     timings = get_current_step_timings()
     if not timings:
         return

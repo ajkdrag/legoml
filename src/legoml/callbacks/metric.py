@@ -11,8 +11,22 @@ logger = get_logger(__name__)
 class MetricsCallback(Callback):
     def __init__(self, metrics: list[Metric]):
         """
-        Args:
-            metrics: List of metrics to compute
+        A
+        rg
+        s:
+  metrics:
+        Li
+        st
+        of
+        me
+        tr
+        ic
+        s
+        to
+        co
+        mp
+        ut
+        e.
         """
         self.metrics = metrics
 

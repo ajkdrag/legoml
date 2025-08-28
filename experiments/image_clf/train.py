@@ -3,11 +3,15 @@ from pathlib import Path
 
 import torch
 import torch.optim.lr_scheduler as lrs
-import torchsummary
+import torchinfo
 
 from experiments.data_utils import create_dataloaders
 from experiments.image_clf.config import Config
-from experiments.image_clf.models import InceptionResnet_style_32x32
+from experiments.image_clf.models import (
+    CNN__MLP_tiny_32x32,
+    ResNet_tiny_32x32,
+    ResNet_CIFAR,
+)
 from experiments.image_clf.steps import eval_step, train_step
 from legoml.callbacks.checkpoint import CheckpointCallback
 from legoml.callbacks.eval import EvalOnEpochEndCallback
@@ -42,7 +46,7 @@ def build_optim_and_sched(
 
 
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = InceptionResnet_style_32x32(c1=3)
+model = ResNet_tiny_32x32()
 optim, sched = build_optim_and_sched(config, model)
 
 with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
@@ -84,9 +88,10 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
         ]
     )
 
-    torchsummary.summary(
+    torchinfo.summary(
         model,
-        next(iter(train_dl)).inputs[0].shape,
+        next(iter(train_dl)).inputs.shape,
+        row_settings=["hide_recursive_layers"],
     )
     model.to(device)
     trainer.loop(train_dl, max_epochs=config.max_epochs)

@@ -15,10 +15,86 @@ class Engine:
         callbacks: list[Callback] | None = None,
     ) -> None:
         """
-        Args:
-            fn: Step function that processes a batch. Signature: fn(engine, batch, context) -> StepOutput
-            context: Shared training context containing model, optimizer, etc.
-            callbacks: List of callbacks to attach to the engine
+        A
+        rg
+        s:
+  fn: Step
+        fu
+        nc
+        ti
+        on
+        th
+        at
+        pr
+        oc
+        es
+        se
+        s
+        a
+        ba
+        tc
+        h.
+Signature:
+        fn
+        (e
+        ng
+        in
+        e,
+        ba
+        tc
+        h,
+        co
+        nt
+        ex
+        t)
+        ->
+        St
+        ep
+        Ou
+        tp
+        ut
+  context:
+        Sh
+        ar
+        ed
+        tr
+        ai
+        ni
+        ng
+        co
+        nt
+        ex
+        t
+        co
+        nt
+        ai
+        ni
+        ng
+model,
+        op
+        ti
+        mi
+        ze
+        r,
+        et
+        c.
+callbacks:
+        Li
+        st
+        of
+        ca
+        ll
+        ba
+        ck
+        s
+        to
+        at
+        ta
+        ch
+        to
+        th
+        e
+engine.
         """
         self.fn = fn
         self.context = context
@@ -88,7 +164,30 @@ class Engine:
         return ckpt
 
     def to_dict(self):
-        """dict[str, str|int|float] representation of the engine"""
+        """D
+        ic
+        t[
+        st
+        r,
+        st
+        r|
+        in
+        t|
+        fl
+        oa
+        t]
+        re
+        pr
+        es
+        en
+        ta
+        ti
+        on
+        of
+        th
+        e
+engine.
+        """
         return {
             "context": self.context.to_dict(),
             "state": self.state.to_dict(),
