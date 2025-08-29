@@ -10,24 +10,6 @@ logger = get_logger(__name__)
 @implements("on_epoch_start", "on_step_end", "on_epoch_end")
 class MetricsCallback(Callback):
     def __init__(self, metrics: list[Metric]):
-        """
-        A
-        rg
-        s:
-  metrics:
-        Li
-        st
-        of
-        me
-        tr
-        ic
-        s
-        to
-        co
-        mp
-        ut
-        e.
-        """
         self.metrics = metrics
 
     def on_epoch_start(self, context: Context, state: EngineState):

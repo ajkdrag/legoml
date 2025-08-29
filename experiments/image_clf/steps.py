@@ -7,7 +7,7 @@ from experiments.image_clf.config import Config
 from experiments.step_utils import (
     forward_and_compute_loss,
     backward_and_step,
-    log_step_loss,
+    log_step,
 )
 
 
@@ -18,6 +18,7 @@ def train_step(
     model = context.model
     loss_fn = context.loss_fn
     optimizer = context.optimizer
+    scheduler = context.scheduler
     device = context.device
     use_amp = context.scaler is not None
 
@@ -31,8 +32,8 @@ def train_step(
         model, loss_fn, inputs, targets, device, use_amp
     )
 
-    backward_and_step(loss, optimizer, context.scaler)
-    log_step_loss(engine, loss, "train", config.train_log_interval)
+    backward_and_step(loss, optimizer, scheduler, context.scaler)
+    log_step(engine, "train", config.train_log_interval)
 
     return StepOutput(
         loss=loss,
@@ -57,7 +58,7 @@ def eval_step(
             model, loss_fn, inputs, targets, device
         )
 
-    log_step_loss(engine, loss, "eval", config.eval_log_interval)
+    log_step(engine, "eval", config.eval_log_interval)
 
     return StepOutput(
         loss=loss,

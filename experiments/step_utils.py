@@ -16,7 +16,7 @@ def forward_and_compute_loss(model, loss_fn, inputs, targets, device, use_amp=Fa
     return outputs, loss
 
 
-def backward_and_step(loss, optimizer, scaler=None):
+def backward_and_step(loss, optimizer, scheduler=None, scaler=None):
     """Backward pass and optimizer step with optional AMP."""
     if scaler is not None:
         scaler.scale(loss).backward()
@@ -26,14 +26,20 @@ def backward_and_step(loss, optimizer, scaler=None):
         loss.backward()
         optimizer.step()
 
+    if scheduler:
+        scheduler.step()
 
-def log_step_loss(engine: Engine, loss: torch.Tensor, mode: str, log_interval: int):
+
+def log_step(engine: Engine, mode: str, log_interval: int):
     """Log loss if at the right interval."""
     if engine.state.local_step % log_interval == 0:
+        loss = engine.state.output.loss_scalar
+        lr = engine.context.get_lr()
         logger.info(
-            f"Loss: {loss.item()}",
+            f"Loss: {loss}",
             step=engine.state.local_step,
             mode=mode,
             epoch=engine.state.epoch,
+            lr=lr,
         )
 

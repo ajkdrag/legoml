@@ -3,6 +3,7 @@ from pathlib import Path
 
 import torch
 import torch.optim.lr_scheduler as lrs
+from torch.utils.data.dataloader import DataLoader
 import torchinfo
 
 from experiments.data_utils import create_dataloaders
@@ -26,28 +27,31 @@ from legoml.utils.track import run
 logger = get_logger(__name__)
 device = torch.device("mps")
 set_seed(42)
-config = Config(train_augmentation=True, max_epochs=5)
+config = Config(train_augmentation=True, max_epochs=20)
 
 
 def build_optim_and_sched(
-    config: Config, model: torch.nn.Module
+    config: Config,
+    model: torch.nn.Module,
+    train_dl: DataLoader,
 ) -> tuple[torch.optim.Optimizer, lrs.LRScheduler]:
-    optimizer = torch.optim.Adam(
+    optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=1e-3,
-        weight_decay=1e-4,
+        lr=1e-6,
+        weight_decay=0.0005,
     )
-    scheduler = lrs.CosineAnnealingLR(
+    scheduler = lrs.OneCycleLR(
         optimizer,
-        T_max=config.max_epochs,
-        eta_min=1e-6,
+        epochs=config.max_epochs,
+        steps_per_epoch=len(train_dl),
+        max_lr=1e-3,
     )
     return optimizer, scheduler
 
 
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
 model = ResNet_tiny_32x32()
-optim, sched = build_optim_and_sched(config, model)
+optim, sched = build_optim_and_sched(config, model, train_dl)
 
 with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
     train_context = Context(

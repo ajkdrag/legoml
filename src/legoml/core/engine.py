@@ -14,88 +14,6 @@ class Engine:
         context: Context,
         callbacks: list[Callback] | None = None,
     ) -> None:
-        """
-        A
-        rg
-        s:
-  fn: Step
-        fu
-        nc
-        ti
-        on
-        th
-        at
-        pr
-        oc
-        es
-        se
-        s
-        a
-        ba
-        tc
-        h.
-Signature:
-        fn
-        (e
-        ng
-        in
-        e,
-        ba
-        tc
-        h,
-        co
-        nt
-        ex
-        t)
-        ->
-        St
-        ep
-        Ou
-        tp
-        ut
-  context:
-        Sh
-        ar
-        ed
-        tr
-        ai
-        ni
-        ng
-        co
-        nt
-        ex
-        t
-        co
-        nt
-        ai
-        ni
-        ng
-model,
-        op
-        ti
-        mi
-        ze
-        r,
-        et
-        c.
-callbacks:
-        Li
-        st
-        of
-        ca
-        ll
-        ba
-        ck
-        s
-        to
-        at
-        ta
-        ch
-        to
-        th
-        e
-engine.
-        """
         self.fn = fn
         self.context = context
         self.state = EngineState()
@@ -164,30 +82,6 @@ engine.
         return ckpt
 
     def to_dict(self):
-        """D
-        ic
-        t[
-        st
-        r,
-        st
-        r|
-        in
-        t|
-        fl
-        oa
-        t]
-        re
-        pr
-        es
-        en
-        ta
-        ti
-        on
-        of
-        th
-        e
-engine.
-        """
         return {
             "context": self.context.to_dict(),
             "state": self.state.to_dict(),

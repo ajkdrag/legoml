@@ -308,7 +308,7 @@ class DropPath(nn.Module):
 class DWConv3x3(ConvLayer):
     """
     Depthwise 3x3 Convolution with BatchNorm and Activation.
-    Used in: MobileNet family, EfficientNet, many mobile architectures
+    Used in: MobileNet family, EfficientNet, many mobile architectures.
 
     Notes
     -----
@@ -316,7 +316,7 @@ class DWConv3x3(ConvLayer):
     Drastically reduces parameters and computation vs standard conv.
 
     References
-    -----------
+    ----------
     MobileNets: Efficient Convolutional Neural Networks (2017)
     """
 
@@ -350,7 +350,7 @@ class DWConv3x3(ConvLayer):
 class DWSepConv3x3(nn.Sequential):
     """
     Full Depthwise Separable Convolution (DW + PW).
-    Used in: MobileNet, Xception
+    Used in: MobileNet, Xception.
 
     Notes
     -----
