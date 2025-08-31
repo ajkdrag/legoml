@@ -1,6 +1,6 @@
 import torch
 from legoml.core.engine import Engine
-from legoml.utils.logging import get_logger
+from legoml.utils.log import get_logger
 
 logger = get_logger(__name__)
 

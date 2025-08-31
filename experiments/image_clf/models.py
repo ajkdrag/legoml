@@ -1,10 +1,13 @@
-from collections import OrderedDict
-import torchinfo
+from legoml.utils.summary import summarize_model
 import torch
 import torch.nn as nn
-from legoml.nn.layers import Conv3x3, GlobalAvgPool2d, LinearLayer, identity
+from legoml.nn.layers import Conv3x3, GlobalAvgPool2d, LinearLayer, identity, noop_fn
 from legoml.nn.blocks.conv import (
+    ConvNeXt,
+    ResNetBasic,
     ResNetBottleneck,
+    FusedMBConv,
+    MBConv,
     ResNeXtBottleneck,
 )
 
@@ -24,7 +27,7 @@ class CNN__MLP_tiny_32x32(nn.Sequential):
         )
         head = nn.Sequential(
             GlobalAvgPool2d(),  # [64]
-            LinearLayer(c1=64, c2=10, act=identity),
+            LinearLayer(c1=64, c2=10, act_fn=noop_fn),
         )
 
         super().__init__(
@@ -41,20 +44,22 @@ class ResNet_tiny_32x32(nn.Sequential):
             nn.MaxPool2d(2, 2),  # [32, 16, 16]
         )
         backbone = nn.Sequential(
-            ResNetBottleneck(c1=32, c2=64, f=2, pre_normact=True),  # [64, 16, 16]
-            nn.MaxPool2d(2, 2),  # [64, 8, 8]
-            ResNetBottleneck(c1=64, c2=64, f=2, pre_normact=True),  # [64, 8, 8]
             ResNetBottleneck(
-                c1=64, c2=64, f=2, pre_normact=True, drop_path=0.1
+                c1=32, c2=64, f_reduce=2, pre_normact=True
+            ),  # [64, 16, 16]
+            nn.MaxPool2d(2, 2),  # [64, 8, 8]
+            ResNetBottleneck(c1=64, c2=64, f_reduce=2, pre_normact=True),  # [64, 8, 8]
+            ResNetBottleneck(
+                c1=64, c2=64, f_reduce=2, pre_normact=True, drop_path=0.1
             ),  # [64, 8, 8]
             ResNetBottleneck(
-                c1=64, c2=64, f=2, pre_normact=True, drop_path=0.1
+                c1=64, c2=64, f_reduce=2, pre_normact=True, drop_path=0.1
             ),  # [64, 8, 8]
         )
         head = nn.Sequential(
             GlobalAvgPool2d(),  # [64]
             nn.ReLU(inplace=True),
-            LinearLayer(c1=64, c2=10, act=identity),
+            LinearLayer(c1=64, c2=10, act_fn=noop_fn),
         )
 
         super().__init__(
@@ -64,27 +69,87 @@ class ResNet_tiny_32x32(nn.Sequential):
         )
 
 
-# class MB_style_32x32(nn.Sequential):
-#     def __init__(self, c1=3):
-#         super().__init__(
-#             Conv_3x3__BnAct(c1=c1, c2=32),  # [32, 32, 32]
-#             nn.Sequential(
-#                 MBConv(c1=32, c2=32),  # [32, 32, 32]
-#                 MBConv(c1=32, c2=32),  # [32, 32, 32]
-#             ),
-#             nn.Sequential(
-#                 MBConv_Down(c1=32, c2=64),  # [64, 16, 16]
-#                 MBConv(c1=64, c2=64),  # [64, 16, 16]
-#             ),
-#             nn.Sequential(
-#                 MBConv_Down(c1=64, c2=128),  # [128, 8, 8]
-#                 MBConv(c1=128, c2=128),  # [128, 8, 8]
-#             ),
-#             nn.AdaptiveAvgPool2d((1, 1)),  # [128, 1, 1]
-#             nn.Flatten(),  # [128]
-#             Linear__LnAct(128 * 1 * 1, 64),  # [64]
-#             nn.Linear(64, 10),
-#         )
+class ResNetBasic_tiny_32x32(nn.Sequential):
+    def __init__(self, c1=3):
+        stem = nn.Sequential(
+            Conv3x3(c1=c1, c2=16),  # [16, 32, 32]
+        )
+        backbone = nn.Sequential(
+            ResNetBasic(c1=16, c2=16),  # [16, 32, 32]
+            ResNetBasic(c1=16, c2=16),  # [16, 32, 32]
+            ResNetBasic(c1=16, c2=16),  # [16, 32, 32]
+            ResNetBasic(c1=16, c2=32, s=2),  # [32, 16, 16]
+            ResNetBasic(c1=32, c2=32),  # [32, 16, 16]
+            ResNetBasic(c1=32, c2=32),  # [32, 16, 16]
+            ResNetBasic(c1=32, c2=64, s=2),  # [64, 8, 8]
+            ResNetBasic(c1=64, c2=64),  # [64, 8, 8]
+            ResNetBasic(c1=64, c2=64),  # [64, 8, 8]
+        )
+        head = nn.Sequential(
+            GlobalAvgPool2d(),  # [64]
+            nn.ReLU(inplace=True),
+            LinearLayer(c1=64, c2=10, act_fn=noop_fn),
+        )
+
+        super().__init__(
+            stem,
+            backbone,
+            head,
+        )
+
+
+class CNN_ConvNeXt_32x32(nn.Sequential):
+    def __init__(self, c1=3):
+        stem = nn.Sequential(
+            Conv3x3(c1=c1, c2=32),  # [32, 32, 32]
+            nn.MaxPool2d(2, 2),  # [32, 16, 16]
+        )
+        backbone = nn.Sequential(
+            ConvNeXt(c1=32, c2=32),  # [32, 16, 16]
+            ConvNeXt(c1=32, c2=32),  # [32, 16, 16]
+            ConvNeXt(c1=32, c2=64, s=2),  # [64, 8, 8]
+            ConvNeXt(c1=64, c2=64, drop_path=0.1),  # [64, 8, 8]
+            ConvNeXt(c1=64, c2=64, drop_path=0.1),  # [64, 8, 8]
+        )
+        head = nn.Sequential(
+            GlobalAvgPool2d(),  # [64]
+            nn.ReLU(inplace=True),
+            LinearLayer(c1=64, c2=10, act_fn=noop_fn),
+        )
+
+        super().__init__(
+            stem,
+            backbone,
+            head,
+        )
+
+
+class MBNet_32x32(nn.Sequential):
+    def __init__(self, c1=3):
+        stem = nn.Sequential(
+            Conv3x3(c1=c1, c2=32),  # [32, 32, 32]
+            nn.MaxPool2d(2, 2),  # [32, 16, 16]
+        )
+        backbone = nn.Sequential(
+            FusedMBConv(c1=32, c2=32),  # [32, 16, 16]
+            # FusedMBConv(c1=32, c2=32),  # [32, 16, 16]
+            MBConv(c1=32, c2=64, s=2),  # [64, 8, 8]
+            # FusedMBConv(c1=64, c2=64, drop_path=0.1),  # [64, 8, 8]
+            MBConv(c1=64, c2=64, drop_path=0.1),  # [64, 8, 8]
+            MBConv(c1=64, c2=64, drop_path=0.1),  # [64, 8, 8]
+            MBConv(c1=64, c2=64, drop_path=0.1),  # [64, 8, 8]
+        )
+        head = nn.Sequential(
+            GlobalAvgPool2d(),  # [64]
+            nn.ReLU(inplace=True),
+            LinearLayer(c1=64, c2=10, act_fn=noop_fn),
+        )
+
+        super().__init__(
+            stem,
+            backbone,
+            head,
+        )
 
 
 class AEBackbone__MLP(nn.Module):
@@ -155,10 +220,5 @@ class ResNet_CIFAR(nn.Module):
 
 if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
-    model = ResNet_tiny_32x32()
-    torchinfo.summary(
-        model,
-        input_data=dummy_ip,
-        row_settings=["hide_recursive_layers"],
-    )
-    print(model)
+    model = ResNetBasic_tiny_32x32()
+    summarize_model(model, dummy_ip, depth=2)

@@ -4,12 +4,14 @@ from pathlib import Path
 import torch
 import torch.optim.lr_scheduler as lrs
 from torch.utils.data.dataloader import DataLoader
-import torchinfo
 
 from experiments.data_utils import create_dataloaders
 from experiments.image_clf.config import Config
 from experiments.image_clf.models import (
     CNN__MLP_tiny_32x32,
+    ResNetBasic_tiny_32x32,
+    CNN_ConvNeXt_32x32,
+    MBNet_32x32,
     ResNet_tiny_32x32,
     ResNet_CIFAR,
 )
@@ -20,14 +22,15 @@ from legoml.callbacks.metric import MetricsCallback
 from legoml.core.context import Context
 from legoml.core.engine import Engine
 from legoml.metrics.multiclass import MultiClassAccuracy
-from legoml.utils.logging import get_logger
+from legoml.utils.log import get_logger
 from legoml.utils.seed import set_seed
 from legoml.utils.track import run
+from legoml.utils.summary import summarize_model
 
 logger = get_logger(__name__)
 device = torch.device("mps")
 set_seed(42)
-config = Config(train_augmentation=True, max_epochs=20)
+config = Config(train_augmentation=True, max_epochs=30)
 
 
 def build_optim_and_sched(
@@ -44,13 +47,13 @@ def build_optim_and_sched(
         optimizer,
         epochs=config.max_epochs,
         steps_per_epoch=len(train_dl),
-        max_lr=1e-3,
+        max_lr=1e-2,
     )
     return optimizer, scheduler
 
 
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = ResNet_tiny_32x32()
+model = ResNetBasic_tiny_32x32()
 optim, sched = build_optim_and_sched(config, model, train_dl)
 
 with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
@@ -75,28 +78,24 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
         eval_step,
         eval_context,
         callbacks=[
-            MetricsCallback(metrics=[MultiClassAccuracy("eval_accuracy")]),
+            MetricsCallback(metrics=[MultiClassAccuracy("eval_acc")]),
         ],
     )
 
     trainer.callbacks.extend(
         [
             EvalOnEpochEndCallback(evaluator, eval_dl, 1),
-            MetricsCallback(metrics=[MultiClassAccuracy("train_accuracy")]),
+            MetricsCallback(metrics=[MultiClassAccuracy("train_acc")]),
             CheckpointCallback(
                 dirpath=sess.get_artifact_dir().joinpath("checkpoints"),
                 save_every_n_epochs=9999,
                 save_on_engine_end=True,
-                best_fn=lambda: evaluator.state.metrics["eval_accuracy"],
+                best_fn=lambda: evaluator.state.metrics["eval_acc"],
             ),
         ]
     )
 
-    torchinfo.summary(
-        model,
-        next(iter(train_dl)).inputs.shape,
-        row_settings=["hide_recursive_layers"],
-    )
+    summarize_model(model, next(iter(train_dl)).inputs, depth=2)
     model.to(device)
     trainer.loop(train_dl, max_epochs=config.max_epochs)
     sess.log_params({"exp_config": asdict(config)})

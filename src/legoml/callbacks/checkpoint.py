@@ -5,7 +5,7 @@ from legoml.core.callback import Callback, implements
 from legoml.core.context import Context
 from legoml.core.state import EngineState
 from legoml.utils.io import save_checkpoint
-from legoml.utils.logging import get_logger
+from legoml.utils.log import get_logger
 
 logger = get_logger(__name__)
 

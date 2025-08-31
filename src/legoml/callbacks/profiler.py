@@ -7,7 +7,7 @@ from torch.profiler import profile, ProfilerActivity, schedule
 from legoml.core.context import Context
 from legoml.core.callback import Callback, implements
 from legoml.core.state import EngineState
-from legoml.utils.logging import get_logger
+from legoml.utils.log import get_logger
 
 logger = get_logger(__name__)
 
@@ -27,38 +27,38 @@ class ProfilerCallback(Callback):
         activities: Optional[list[ProfilerActivity]] = None,
     ):
         """
-        P
-        yT
-        or
-        ch
-        pr
-        of
-        il
-        er
-        ca
-        ll
-        ba
-        ck
-        fo
-        r
-        pe
-        rf
-        or
-        ma
-        nc
-        e
-analysis.
+                P
+                yT
+                or
+                ch
+                pr
+                of
+                il
+                er
+                ca
+                ll
+                ba
+                ck
+                fo
+                r
+                pe
+                rf
+                or
+                ma
+                nc
+                e
+        analysis.
 
-        Args:
-            output_dir: Directory to save profiler traces
-            wait: Number of steps to skip before profiling
-            warmup: Number of warmup steps
-            active: Number of active profiling steps
-            repeat: Number of cycles to repeat profiling
-            record_shapes: Record tensor shapes
-            profile_memory: Enable memory profiling
-            with_stack: Record stack traces (slower but more detailed)
-            activities: List of activities to profile (defaults to CPU and CUDA/MPS)
+                Args:
+                    output_dir: Directory to save profiler traces
+                    wait: Number of steps to skip before profiling
+                    warmup: Number of warmup steps
+                    active: Number of active profiling steps
+                    repeat: Number of cycles to repeat profiling
+                    record_shapes: Record tensor shapes
+                    profile_memory: Enable memory profiling
+                    with_stack: Record stack traces (slower but more detailed)
+                    activities: List of activities to profile (defaults to CPU and CUDA/MPS)
         """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)

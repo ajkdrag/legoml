@@ -2,7 +2,7 @@ from torch.utils.data.dataloader import DataLoader
 
 import legoml.data.cifar10 as cifar10
 import legoml.data.mnist as mnist
-from legoml.utils.logging import get_logger
+from legoml.utils.log import get_logger
 
 logger = get_logger(__name__)
 
@@ -72,7 +72,7 @@ def create_cifar10_loaders(
     train_ds = cifar10.build_cifar10(
         cifar10.CIFAR10Config(
             split="train",
-            augmentation=config.train_augmentation,
+            augment=config.train_augmentation,
             data_root=config.data_root,
         )
     )
@@ -80,7 +80,7 @@ def create_cifar10_loaders(
     val_ds = cifar10.build_cifar10(
         cifar10.CIFAR10Config(
             split="test",
-            augmentation=False,
+            augment=False,
             data_root=config.data_root,
         )
     )

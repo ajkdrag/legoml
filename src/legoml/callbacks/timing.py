@@ -1,5 +1,4 @@
 import time
-from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List
 import csv
@@ -7,7 +6,7 @@ import csv
 from legoml.core.context import Context
 from legoml.core.callback import Callback, implements
 from legoml.core.state import EngineState
-from legoml.utils.logging import get_logger
+from legoml.utils.log import get_logger
 
 logger = get_logger(__name__)
 
@@ -22,55 +21,6 @@ class TimingCallback(Callback):
         save_detailed_stats: bool = True,
         output_dir: str | Path = "./timing_logs",
     ):
-        """
-        C
-        al
-        lb
-        ac
-        k
-        fo
-        r
-        me
-        as
-        ur
-        in
-        g
-        st
-        ep
-        ex
-        ec
-        ut
-        io
-        n
-        ti
-        me
-        s
-        an
-        d
-        id
-        en
-        ti
-        fy
-        in
-        g
-        pe
-        rf
-        or
-        ma
-        nc
-        e
-        bo
-        tt
-        le
-        ne
-        ck
-        s.
-
-        Args:
-            log_interval: How often to log timing statistics (in steps)
-            save_detailed_stats: Whether to save detailed timing data to CSV
-            output_dir: Directory to save timing logs
-        """
         self.log_interval = log_interval
         self.save_detailed_stats = save_detailed_stats
         self.output_dir = Path(output_dir)
@@ -224,29 +174,6 @@ class TimingCallback(Callback):
             logger.info(f"Detailed timing data saved to {csv_file}")
 
     def get_statistics(self) -> Dict:
-        """G
-        et
-        cu
-        rr
-        en
-        t
-        ti
-        mi
-        ng
-        st
-        at
-        is
-        ti
-        cs
-        as
-        a
-        di
-        ct
-        io
-        na
-        ry
-        .
-        """
         if not self.step_times:
             return {}
 
@@ -261,4 +188,3 @@ class TimingCallback(Callback):
                 for epoch, step, time_ms in self.slowest_steps[:5]
             ],
         }
-

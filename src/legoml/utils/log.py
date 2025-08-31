@@ -1,12 +1,3 @@
-"""Central
-ized
-logging co
-nfiguratio
-n for the
-LegoML
-framework.
-"""
-
 import logging
 import structlog
 
@@ -21,24 +12,6 @@ def setup_logging(
     log_level: str = "INFO",
     structured: bool = True,
 ) -> structlog.BoundLogger:
-    """
-    Set
-    up str
-    ucture
-    d logg
-    ing
-    for
-    the fr
-    amewor
-    k.
-
-    Args:
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_file: Optional path to log file
-        structured: Whether to use structured logging format
-    Returns:
-        Configured structlog logger
-    """
     processors = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
@@ -60,7 +33,9 @@ def setup_logging(
         cache_logger_on_first_use=True,
     )
 
-    return structlog.get_logger()
+    logger = structlog.get_logger()
+    logger.info("Finished logging setup")
+    return logger
 
 
 def get_logger(name: str) -> structlog.BoundLogger:
