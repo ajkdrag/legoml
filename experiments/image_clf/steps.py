@@ -1,14 +1,15 @@
 import torch
-from legoml.core.engine import Engine
-from legoml.core.context import Context
-from legoml.core.step_output import StepOutput
-from legoml.data.batches import ClassificationBatch
+
 from experiments.image_clf.config import Config
 from experiments.step_utils import (
-    forward_and_compute_loss,
     backward_and_step,
+    forward_and_compute_loss,
     log_step,
 )
+from legoml.core.context import Context
+from legoml.core.engine import Engine
+from legoml.core.step_output import StepOutput
+from legoml.data.batches import ClassificationBatch
 
 
 def train_step(

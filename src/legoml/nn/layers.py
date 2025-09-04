@@ -1,140 +1,79 @@
 import math
-from typing import Callable
-from collections import OrderedDict
+from functools import partial
 
 import torch
 import torch.nn as nn
 from einops.layers.torch import Rearrange
 
-from legoml.nn.activations import relu_fn
-from legoml.nn.norms import bn1d_fn, bn2d_fn
+from legoml.nn.primitives import (
+    ModuleCtor,
+    identity,
+)
+from legoml.nn.utils import autopad
 
 
-def autopad(k: int, p: int | None = None, d: int = 1):
-    """Utility for padding to 'same' shape outputs."""
-    if d > 1:
-        k = d * (k - 1) + 1
-    return p or (k - 1) // 2
-
-
-def make_divisible(
-    v: float,
-    divisor: int = 8,
-    min_value: int | None = None,
-    round_down_protect: bool = True,
-) -> int:
-    """
-    Rounds a value `v` to the nearest multiple of `divisor`. This is crucial for
-    optimizing performance on hardware accelerators like GPUs.
-    From the original TensorFlow repository:
-    https://github.com/tensorflow/models/blob/master/official/vision/modeling/layers/nn_layers.py"""
-    if min_value is None:
-        min_value = divisor
-    new_value = max(min_value, int(v + divisor / 2) // divisor * divisor)
-    # Make sure that round down does not go down by more than 10%.
-    if round_down_protect and new_value < 0.9 * v:
-        new_value += divisor
-    return int(new_value)
-
-
-identity = nn.Identity()
-
-
-def noop_fn(*_args, **_kwargs):
-    return identity
-
-
-class NormAct(nn.Module):
-    """Sequential normalization and activation layer.
-
-    Parameters
-    ----------
-    norm : nn.Module
-        Normalization layer (e.g., BatchNorm, LayerNorm)
-    act : nn.Module
-        Activation function (e.g., ReLU, GELU)
-    """
-
-    def __init__(self, norm: nn.Module, act: nn.Module):
+class PoolShortcut(nn.Sequential):
+    def __init__(self, k: int = 3, s: int = 1, pool: ModuleCtor = nn.AvgPool2d):
         super().__init__()
-        self.norm = norm
-        self.act = act
 
-    def forward(self, x: torch.Tensor):
-        return self.act(self.norm(x))
+        self.shortcut = (
+            identity
+            if s == 1
+            else pool(
+                kernel_size=k,
+                stride=s,
+                padding=autopad(k),
+            )
+        )
 
 
-class LinearLayer(nn.Module):
+class FCNormAct(nn.Sequential):
     """Linear layer with normalization and activation.
 
-    Supports both post-normact (Linear->BN->Act) and pre-normact (BN->Act->Linear)
-    patterns for improved gradient flow.
+    Linear->BN->Act with Dropout support.
 
     Parameters
     ----------
-    c1 : int
+    c_in : int
         Input features
-    c2 : int, optional
-        Output features. Defaults to c1
+    c_out : int, optional
+        Output features. Defaults to c_in
     dropout : float, default=0.0
         Dropout probability after activation
-    norm_fn : Callable, optional
-        Normalization function. Defaults to bn1d_fn
-    act_fn : Callable, optional
-        Activation function. Defaults to relu_fn
-    pre_normact : bool, default=False
-        If True, applies norm->act->linear instead of linear->norm->act
+    norm : Callable, optional
+        Normalization. Defaults to BatchNorm2d
+    act: Callable, optional
+        Activation. Defaults to Relu
     """
 
     def __init__(
         self,
         *,
-        c1,
-        c2=None,
-        dropout=0.0,
-        norm_fn: Callable[..., nn.Module] | None = None,
-        act_fn: Callable[..., nn.Module] | None = None,
-        pre_normact=False,
+        c_in: int,
+        c_out: int | None = None,
+        norm: ModuleCtor = nn.BatchNorm1d,
+        act: ModuleCtor = partial(nn.ReLU, inplace=True),
+        dropout: float = 0.0,
     ):
         super().__init__()
-        c2 = c2 or c1
-        norm_fn = norm_fn or bn1d_fn
-        act_fn = act_fn or relu_fn
+        c_out = c_out or c_in
 
         # TODO: Should bias be set to False like ConvLayer?
-        self.linear = nn.Linear(c1, c2)
-        self.norm_act = NormAct(
-            norm=norm_fn(c1 if pre_normact else c2),
-            act=act_fn(),
-        )
-        self.dropout = nn.Dropout(dropout) if dropout > 0.0 else None
-        self.pre_normact = pre_normact
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.pre_normact:
-            x = self.norm_act(x)
-            x = self.linear(x)
-        else:
-            x = self.linear(x)
-            x = self.norm_act(x)
-
-        if self.dropout is not None:
-            x = self.dropout(x)
-        return x
+        self.block = nn.Linear(c_in, c_out)
+        self.norm = norm(c_out)
+        self.act = act()
+        self.dropout = nn.Dropout(dropout) if dropout > 0.0 else identity
 
 
-class ConvLayer(nn.Module):
-    """Convolution layer with normalization and activation.
-
-    Supports both post-normact (Conv->BN->Act) and pre-normact (BN->Act->Conv)
-    patterns with automatic same padding.
+class ConvNormAct(nn.Sequential):
+    """Convolution layer with normalization and activation (Conv->BN->Act)
 
     Parameters
     ----------
-    c1 : int
+    c_in : int
         Input channels
-    c2 : int, optional
-        Output channels. Defaults to c1
+    c_out : int, optional
+        Output channels. Defaults to c_in
     k : int, default=3
         Kernel size
     s : int, default=1
@@ -147,12 +86,10 @@ class ConvLayer(nn.Module):
         Dilation
     dropout : float, default=0.0
         Dropout probability after activation
-    norm_fn : Callable, optional
-        Normalization function. Defaults to bn2d_fn
-    act_fn : Callable, optional
-        Activation function. Defaults to relu_fn
-    pre_normact : bool, default=False
-        If True, applies norm->act->conv instead of conv->norm->act
+    norm : Callable, optional
+        Normalization. Defaults to Batchnorm2d
+    act : Callable, optional
+        Activation. Defaults to Relu
     **kwargs
         Additional arguments passed to Conv2d
     """
@@ -160,131 +97,49 @@ class ConvLayer(nn.Module):
     def __init__(
         self,
         *,
-        c1: int,
-        c2: int | None = None,
+        c_in: int,
+        c_out: int | None = None,
         k: int = 3,
         s: int = 1,
         p: int | None = None,
         g: int = 1,
         d: int = 1,
+        norm: ModuleCtor = nn.BatchNorm2d,
+        act: ModuleCtor = partial(nn.ReLU, inplace=True),
         dropout=0.0,
-        norm_fn: Callable[..., nn.Module] | None = None,
-        act_fn: Callable[..., nn.Module] | None = None,
-        pre_normact=False,
         **kwargs,
     ):
         super().__init__()
-        c2 = c2 or c1
+        c_out = c_out or c_in
         p = autopad(k, p, d)
-        norm_fn = norm_fn or bn2d_fn
-        act_fn = act_fn or relu_fn
 
-        self.conv = nn.Conv2d(
-            c1,
-            c2,
+        self.block = nn.Conv2d(
+            c_in,
+            c_out,
             kernel_size=k,
             stride=s,
             padding=p,
             groups=g,
             dilation=d,
-            bias=True if pre_normact else False,
+            bias=False,
             **kwargs,
         )
-        self.norm_act = NormAct(
-            norm=norm_fn(c1 if pre_normact else c2),
-            act=act_fn(),
-        )
-        self.dropout = nn.Dropout(dropout) if dropout > 0.0 else None
-        self.pre_normact = pre_normact
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.pre_normact:
-            x = self.norm_act(x)
-            x = self.conv(x)
-        else:
-            x = self.conv(x)
-            x = self.norm_act(x)
-
-        if self.dropout is not None:
-            x = self.dropout(x)
-        return x
+        self.norm = norm(c_out)
+        self.act = act()
+        self.dropout = nn.Dropout(dropout) if dropout > 0.0 else identity
 
 
-class Conv1x1(ConvLayer):
-    """1x1 convolution layer for channel-wise transformations.
-
-    Pointwise convolution used for channel mixing, dimension reduction/expansion,
-    and feature transformations without spatial interactions.
+class NormActConv(nn.Sequential):
+    """Convolution layer with normalization and activation (BN->Act->Conv)
 
     Parameters
     ----------
-    c1 : int
+    c_in : int
         Input channels
-    c2 : int, optional
-        Output channels. Defaults to c1
-    s : int, default=1
-        Stride
-    p : int, optional
-        Padding
-    g : int, default=1
-        Groups for grouped convolution
-    d : int, default=1
-        Dilation
-    dropout : float, default=0.0
-        Dropout probability after activation
-    norm_fn : Callable, optional
-        Normalization function. Defaults to bn2d_fn
-    act_fn : Callable, optional
-        Activation function. Defaults to relu_fn
-    pre_normact : bool, default=False
-        If True, applies norm->act->conv instead of conv->norm->act
-    **kwargs
-        Additional arguments passed to Conv2d
-    """
-
-    def __init__(
-        self,
-        *,
-        c1: int,
-        c2: int | None = None,
-        s: int = 1,
-        p: int | None = None,
-        g: int = 1,
-        d: int = 1,
-        dropout=0.0,
-        norm_fn: Callable[..., nn.Module] | None = None,
-        act_fn: Callable[..., nn.Module] | None = None,
-        pre_normact=False,
-        **kwargs,
-    ):
-        super().__init__(
-            c1=c1,
-            c2=c2,
-            k=1,
-            s=s,
-            p=p,
-            g=g,
-            d=d,
-            dropout=dropout,
-            norm_fn=norm_fn,
-            act_fn=act_fn,
-            pre_normact=pre_normact,
-            **kwargs,
-        )
-
-
-class Conv3x3(ConvLayer):
-    """3x3 convolution layer for spatial feature extraction.
-
-    Standard spatial convolution with 3x3 kernel for local feature extraction
-    and pattern recognition in computer vision tasks.
-
-    Parameters
-    ----------
-    c1 : int
-        Input channels
-    c2 : int, optional
-        Output channels. Defaults to c1
+    c_out : int, optional
+        Output channels. Defaults to c_in
+    k : int, default=3
+        Kernel size
     s : int, default=1
         Stride
     p : int, optional
@@ -295,12 +150,10 @@ class Conv3x3(ConvLayer):
         Dilation
     dropout : float, default=0.0
         Dropout probability after activation
-    norm_fn : Callable, optional
-        Normalization function. Defaults to bn2d_fn
-    act_fn : Callable, optional
-        Activation function. Defaults to relu_fn
-    pre_normact : bool, default=False
-        If True, applies norm->act->conv instead of conv->norm->act
+    norm : Callable, optional
+        Normalization. Defaults to Batchnorm2d
+    act : Callable, optional
+        Activation. Defaults to Relu
     **kwargs
         Additional arguments passed to Conv2d
     """
@@ -308,100 +161,159 @@ class Conv3x3(ConvLayer):
     def __init__(
         self,
         *,
-        c1: int,
-        c2: int | None = None,
+        c_in: int,
+        c_out: int | None = None,
+        k: int = 3,
         s: int = 1,
         p: int | None = None,
         g: int = 1,
         d: int = 1,
+        norm: ModuleCtor = nn.BatchNorm2d,
+        act: ModuleCtor = partial(nn.ReLU, inplace=True),
         dropout=0.0,
-        norm_fn: Callable[..., nn.Module] | None = None,
-        act_fn: Callable[..., nn.Module] | None = None,
-        pre_normact=False,
+        bias=False,
         **kwargs,
     ):
-        super().__init__(
-            c1=c1,
-            c2=c2,
-            k=3,
-            s=s,
-            p=p,
-            g=g,
-            d=d,
-            dropout=dropout,
-            norm_fn=norm_fn,
-            act_fn=act_fn,
-            pre_normact=pre_normact,
+        super().__init__()
+        c_out = c_out or c_in
+        p = autopad(k, p, d)
+
+        self.norm = norm(c_in)
+        self.act = act()
+        self.block = nn.Conv2d(
+            c_in,
+            c_out,
+            kernel_size=k,
+            stride=s,
+            padding=p,
+            groups=g,
+            dilation=d,
+            bias=bias,
             **kwargs,
         )
+        self.dropout = nn.Dropout(dropout) if dropout > 0.0 else identity
 
 
-class Shortcut(nn.Module):
-    """Identity or projection shortcut for residual connections.
+class DWConvNormAct(ConvNormAct):
+    """Depthwise convolution for efficient spatial processing.
 
-    Automatically handles dimension matching for residual connections by using
-    identity when input/output dimensions match, otherwise applies 1x1 conv
-    projection to match channels and/or spatial dimensions with stride.
+    Applies one filter per input channel, drastically reducing parameters and
+    computation compared to standard convolution. Core component of depthwise
+    separable convolutions in mobile architectures.
 
     Parameters
     ----------
-    c1 : int
-        Input channels
-    c2 : int
-        Output channels
+    c_in : int
+        Number of input/output channels
+    k : int, default=3
+        Kernel size
     s : int, default=1
-        Stride for projection when needed
+        Stride
     p : int, optional
-        Padding for projection convolution
-    g : int, default=1
-        Groups for projection convolution
+        Padding. Automatically computed for 'same' padding if None
     d : int, default=1
-        Dilation for projection convolution
+        Dilation
     dropout : float, default=0.0
-        Dropout probability
-    norm_fn : Callable, optional
-        Normalization function for projection
-    act_fn : Callable, optional
-        Activation function for projection. Defaults to noop_fn
-    pre_normact : bool, default=False
-        If True, uses pre-activation pattern for projection
+        Dropout probability after activation
+    norm : Callable, optional
+        Normalization. Defaults to Batchnorm2d
+    act : Callable, optional
+        Activation. Defaults to Relu
+    **kwargs
+        Additional arguments passed to Conv2d
     """
 
     def __init__(
         self,
         *,
-        c1: int,
-        c2: int,
+        c_in: int,
+        k: int = 3,
         s: int = 1,
         p: int | None = None,
-        g: int = 1,
         d: int = 1,
+        norm: ModuleCtor = nn.BatchNorm2d,
+        act: ModuleCtor = partial(nn.ReLU, inplace=True),
         dropout=0.0,
-        norm_fn: Callable[..., nn.Module] | None = None,
-        act_fn: Callable[..., nn.Module] | None = None,
-        pre_normact: bool = False,
+        **kwargs,
     ):
-        super().__init__()
-        act_fn = act_fn or noop_fn
-        self.shortcut = (
-            identity
-            if c1 == c2 and s == 1
-            else Conv1x1(
-                c1=c1,
-                c2=c2,
-                s=s,
-                p=p,
-                g=g,
-                d=d,
-                dropout=dropout,
-                norm_fn=norm_fn,
-                act_fn=act_fn,
-                pre_normact=pre_normact,
-            )
+        super().__init__(
+            c_in=c_in,
+            c_out=c_in,
+            k=k,
+            s=s,
+            p=p,
+            g=c_in,
+            d=d,
+            norm=norm,
+            act=act,
+            dropout=dropout,
+            **kwargs,
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.shortcut(x)
+
+class DWSepConvNormAct(nn.Sequential):
+    """Complete depthwise separable convolution.
+
+    Combines depthwise convolution (spatial filtering) with pointwise
+    convolution (channel mixing). Achieves similar representational capacity
+    as standard convolution with significantly fewer parameters.
+
+    Parameters
+    ----------
+    c_in : int
+        Input channels
+    c_out : int
+        Output channels
+    k : int, default=3
+        Kernel size for depthwise convolution
+    s : int, default=1
+        Stride for depthwise convolution
+    p : int, optional
+        Padding for depthwise convolution
+    d : int, default=1
+        Dilation for depthwise convolution
+    dropout : float, default=0.0
+        Dropout probability
+    norm : Callable, optional
+        Normalization function. Defaults to batchnorm2d
+    dw_act : Callable, optional
+        Activation for depthwise conv. Defaults to relu
+    pw_act : Callable, optional
+        Activation for pointwise conv. Defaults to noop
+    """
+
+    def __init__(
+        self,
+        *,
+        c_in: int,
+        c_out: int | None = None,
+        k: int = 3,
+        s: int = 1,
+        p: int | None = None,
+        d: int = 1,
+        dropout=0.0,
+        norm: ModuleCtor = nn.BatchNorm2d,
+        dw_act: ModuleCtor = partial(nn.ReLU, inplace=True),
+        pw_act: ModuleCtor = nn.Identity,
+    ):
+        super().__init__()
+        c_out = c_out or c_in
+        self.dw_block = DWConvNormAct(
+            c_in=c_in,
+            s=s,
+            k=k,
+            p=p,
+            d=d,
+            norm=norm,
+            act=dw_act,
+        )
+        self.pw_block = Conv1x1NormAct(
+            c_in=c_in,
+            c_out=c_out,
+            dropout=dropout,
+            norm=norm,
+            act=pw_act,
+        )
 
 
 class ScaledResidual(nn.Module):
@@ -462,7 +374,7 @@ class BranchAndConcat(nn.Module):
         return torch.cat([branch(x) for branch in self.branches], dim=1)
 
 
-class GlobalAvgPool2d(nn.Module):
+class GlobalAvgPool2d(nn.Sequential):
     """Global average pooling for spatial dimension reduction.
 
     Reduces spatial dimensions (H, W) to (1, 1) via adaptive average pooling.
@@ -476,18 +388,11 @@ class GlobalAvgPool2d(nn.Module):
 
     def __init__(self, keep_dim: bool = False):
         super().__init__()
-        self.keep_dim = keep_dim
-        self.pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.flatten = nn.Flatten() if not keep_dim else None
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.pool(x)
-        if self.flatten is not None:
-            x = self.flatten(x)
-        return x
+        self.block = nn.AdaptiveAvgPool2d((1, 1))
+        self.flatten = nn.Flatten() if not keep_dim else identity
 
 
-class ChannelShuffle(nn.Module):
+class ChannelShuffle(nn.Sequential):
     """Channel shuffling for grouped convolution information exchange.
 
     Permutes channels to enable information flow between groups in grouped
@@ -502,10 +407,7 @@ class ChannelShuffle(nn.Module):
 
     def __init__(self, g):
         super().__init__()
-        self.rearrange = Rearrange("b (g c_per_g) h w -> b (c_per_g g) h w", g=g)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.rearrange(x)
+        self.block = Rearrange("b (g c_per_g) h w -> b (c_per_g g) h w", g=g)
 
 
 class DropPath(nn.Module):
@@ -543,138 +445,6 @@ class DropPath(nn.Module):
         return x
 
 
-class DWConv(ConvLayer):
-    """Depthwise convolution for efficient spatial processing.
-
-    Applies one filter per input channel, drastically reducing parameters and
-    computation compared to standard convolution. Core component of depthwise
-    separable convolutions in mobile architectures.
-
-    Parameters
-    ----------
-    c : int
-        Number of input/output channels
-    k : int, default=3
-        Kernel size
-    s : int, default=1
-        Stride
-    p : int, optional
-        Padding. Automatically computed for 'same' padding if None
-    d : int, default=1
-        Dilation
-    dropout : float, default=0.0
-        Dropout probability after activation
-    norm_fn : Callable, optional
-        Normalization function. Defaults to bn2d_fn
-    act_fn : Callable, optional
-        Activation function. Defaults to relu_fn
-    pre_normact : bool, default=False
-        If True, applies norm->act->conv instead of conv->norm->act
-    **kwargs
-        Additional arguments passed to Conv2d
-    """
-
-    def __init__(
-        self,
-        *,
-        c: int,
-        k: int = 3,
-        s: int = 1,
-        p: int | None = None,
-        d: int = 1,
-        dropout=0.0,
-        norm_fn: Callable[..., nn.Module] | None = None,
-        act_fn: Callable[..., nn.Module] | None = None,
-        pre_normact=False,
-        **kwargs,
-    ):
-        super().__init__(
-            c1=c,
-            c2=c,
-            k=k,
-            s=s,
-            p=p,
-            g=c,
-            d=d,
-            dropout=dropout,
-            norm_fn=norm_fn,
-            act_fn=act_fn,
-            pre_normact=pre_normact,
-            **kwargs,
-        )
-
-
-class DWSepConv(nn.Module):
-    """Complete depthwise separable convolution.
-
-    Combines depthwise convolution (spatial filtering) with pointwise
-    convolution (channel mixing). Achieves similar representational capacity
-    as standard convolution with significantly fewer parameters.
-
-    Parameters
-    ----------
-    c1 : int
-        Input channels
-    c2 : int
-        Output channels
-    k : int, default=3
-        Kernel size for depthwise convolution
-    s : int, default=1
-        Stride for depthwise convolution
-    p : int, optional
-        Padding for depthwise convolution
-    d : int, default=1
-        Dilation for depthwise convolution
-    dropout : float, default=0.0
-        Dropout probability
-    norm_fn : Callable, optional
-        Normalization function. Defaults to bn2d_fn
-    dw_act_fn : Callable, optional
-        Activation for depthwise conv. Defaults to relu_fn
-    pw_act_fn : Callable, optional
-        Activation for pointwise conv. Defaults to noop_fn
-    pre_normact : bool, default=False
-        If True, applies norm->act->conv pattern
-    """
-
-    def __init__(
-        self,
-        *,
-        c1: int,
-        c2: int,
-        k: int = 3,
-        s: int = 1,
-        p: int | None = None,
-        d: int = 1,
-        dropout=0.0,
-        norm_fn: Callable[..., nn.Module] | None = None,
-        dw_act_fn: Callable[..., nn.Module] | None = None,
-        pw_act_fn: Callable[..., nn.Module] | None = None,
-        pre_normact=False,
-    ):
-        super().__init__()
-        pw_act_fn = pw_act_fn or noop_fn
-        self.dw_conv = DWConv(
-            c=c1,
-            s=s,
-            k=k,
-            p=p,
-            d=d,
-            dropout=dropout,
-            norm_fn=norm_fn,
-            act_fn=dw_act_fn,
-            pre_normact=pre_normact,
-        )
-        self.pw_conv = Conv1x1(
-            c1=c1,
-            c2=c2,
-            dropout=dropout,
-            norm_fn=norm_fn,
-            act_fn=pw_act_fn,
-            pre_normact=pre_normact,
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.dw_conv(x)
-        x = self.pw_conv(x)
-        return x
+Conv3x3NormAct = partial(ConvNormAct, k=3)
+Conv1x1NormAct = partial(ConvNormAct, k=1)
+NormActConv3x3 = partial(NormActConv, k=3)

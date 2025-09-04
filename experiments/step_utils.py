@@ -1,4 +1,5 @@
 import torch
+
 from legoml.core.engine import Engine
 from legoml.utils.log import get_logger
 
@@ -9,7 +10,7 @@ def forward_and_compute_loss(model, loss_fn, inputs, targets, device, use_amp=Fa
     """Forward pass and loss computation with optional AMP."""
     inputs, targets = inputs.to(device), targets.to(device)
 
-    with torch.autocast(enabled=use_amp, device_type=device.type):
+    with torch.autocast(enabled=use_amp, device_type=device.type, dtype=torch.bfloat16):
         outputs = model(inputs)
         loss = loss_fn(outputs, targets)
 
@@ -42,4 +43,3 @@ def log_step(engine: Engine, mode: str, log_interval: int):
             epoch=engine.state.epoch,
             lr=lr,
         )
-

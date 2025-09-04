@@ -1,224 +1,180 @@
-from legoml.utils.summary import summarize_model
+from functools import partial
+
 import torch
 import torch.nn as nn
-from legoml.nn.layers import Conv3x3, GlobalAvgPool2d, LinearLayer, identity, noop_fn
-from legoml.nn.blocks.conv import (
-    ConvNeXt,
+
+from legoml.nn.blocks.resnet import (
+    Res2NetBlock,
+    Res2NetBottleneck,
     ResNetBasic,
-    ResNetBottleneck,
-    FusedMBConv,
-    MBConv,
-    ResNeXtBottleneck,
+    ResNetPreAct,
+    ResnetShortcut,
 )
+from legoml.nn.layers import (
+    Conv1x1NormAct,
+    Conv3x3NormAct,
+    DWSepConvNormAct,
+    FCNormAct,
+    GlobalAvgPool2d,
+)
+from legoml.utils.summary import summarize_model
 
 
 class CNN__MLP_tiny_32x32(nn.Sequential):
-    def __init__(self, c1=3):
-        stem = nn.Sequential(
-            Conv3x3(c1=c1, c2=32),  # [32, 32, 32]
+    def __init__(self, c_in=3):
+        super().__init__()
+        self.stem = nn.Sequential(
+            Conv3x3NormAct(c_in=c_in, c_out=32),  # [32, 32, 32]
             nn.MaxPool2d(2, 2),  # [32, 16, 16]
         )
-        backbone = nn.Sequential(
-            Conv3x3(c1=32, c2=64),  # [64, 16, 16]
+        self.backbone = nn.Sequential(
+            Conv3x3NormAct(c_in=32, c_out=64),  # [64, 16, 16]
             nn.MaxPool2d(2, 2),  # [64, 8, 8]
-            Conv3x3(c1=64, c2=64),  # [64, 8, 8]
-            Conv3x3(c1=64, c2=64),  # [64, 8, 8]
-            Conv3x3(c1=64, c2=64),  # [64, 8, 8]
+            Conv3x3NormAct(c_in=64, c_out=64),  # [64, 8, 8]
+            Conv3x3NormAct(c_in=64, c_out=64),  # [64, 8, 8]
+            Conv3x3NormAct(c_in=64, c_out=64),  # [64, 8, 8]
         )
-        head = nn.Sequential(
+        self.head = nn.Sequential(
             GlobalAvgPool2d(),  # [64]
-            LinearLayer(c1=64, c2=10, act_fn=noop_fn),
-        )
-
-        super().__init__(
-            stem,
-            backbone,
-            head,
+            FCNormAct(c_in=64, c_out=10, act=nn.Identity),
         )
 
 
-class ResNet_tiny_32x32(nn.Sequential):
-    def __init__(self, c1=3):
-        stem = nn.Sequential(
-            Conv3x3(c1=c1, c2=32),  # [32, 32, 32]
-            nn.MaxPool2d(2, 2),  # [32, 16, 16]
+class Res2Net_32x32(nn.Sequential):
+    def __init__(self, c_in=3):
+        super().__init__()
+        self.stem = nn.Sequential(
+            Conv3x3NormAct(c_in=c_in, c_out=64),  # [32, 32, 32]
         )
-        backbone = nn.Sequential(
-            ResNetBottleneck(
-                c1=32, c2=64, f_reduce=2, pre_normact=True
-            ),  # [64, 16, 16]
-            nn.MaxPool2d(2, 2),  # [64, 8, 8]
-            ResNetBottleneck(c1=64, c2=64, f_reduce=2, pre_normact=True),  # [64, 8, 8]
-            ResNetBottleneck(
-                c1=64, c2=64, f_reduce=2, pre_normact=True, drop_path=0.1
+        self.backbone = nn.Sequential(
+            Res2NetBottleneck(
+                c_in=64,
+                block2=partial(Res2NetBlock, c_mid=32),
+                c_out=256,
+            ),  # [128, 32, 32]
+            Res2NetBlock(c_in=256, c_mid=32, c_out=256),  # [128, 32, 32]
+            Res2NetBottleneck(
+                c_in=256,
+                block2=partial(Res2NetBlock, c_mid=32),
+                c_out=512,
+                s=2,
+            ),  # [256, 16, 16]
+            Res2NetBlock(c_in=512, c_mid=64, c_out=512),  # [512, 8, 8]
+            Res2NetBottleneck(
+                c_in=512,
+                block2=partial(Res2NetBlock, c_mid=32),
+                c_out=1024,
+                s=2,
+            ),  # [512, 8, 8]
+            Res2NetBlock(c_in=1024, c_mid=128, c_out=1024),  # [1024, 8, 8]
+        )
+        self.head = nn.Sequential(
+            GlobalAvgPool2d(),  # [1024]
+            FCNormAct(c_in=1024, c_out=10, act=nn.Identity),
+        )
+
+
+class Res2NetWide_32x32(nn.Sequential):
+    def __init__(self, c_in=3):
+        super().__init__()
+        self.stem = nn.Sequential(
+            Conv3x3NormAct(c_in=c_in, c_out=64),  # [64, 32, 32]
+        )
+        self.backbone = nn.Sequential(
+            Res2NetBlock(c_in=64, c_mid=32),  # [64, 32, 32]
+            Res2NetBlock(c_in=64, c_mid=32),  # [64, 32, 32]
+            Res2NetBlock(c_in=64, c_mid=32, c_out=128, s=2),  # [128, 16, 16]
+            Res2NetBlock(c_in=128, c_mid=32),  # [128, 16, 16]
+            Res2NetBlock(c_in=128, c_mid=32),  # [128, 16, 16]
+            Res2NetBlock(c_in=128, c_mid=32, c_out=256, s=2),  # [256, 8, 8]
+            Res2NetBlock(c_in=256, c_mid=32),  # [256, 8, 8]
+            Res2NetBlock(c_in=256, c_mid=32),  # [256, 8, 8]
+        )
+        self.head = nn.Sequential(
+            GlobalAvgPool2d(),  # [256]
+            FCNormAct(c_in=256, c_out=10, act=nn.Identity),
+        )
+
+
+class ResNetPreAct_tiny_32x32(nn.Sequential):
+    def __init__(self, c_in=3):
+        super().__init__()
+        self.stem = nn.Sequential(
+            Conv3x3NormAct(c_in=c_in, c_out=16),  # [16, 32, 32]
+        )
+        self.backbone = nn.Sequential(
+            ResNetPreAct(c_in=16, c_out=16),  # [16, 32, 32]
+            ResNetPreAct(c_in=16, c_out=16),  # [16, 32, 32]
+            ResNetPreAct(c_in=16, c_out=16),  # [16, 32, 32]
+            ResNetPreAct(c_in=16, c_out=32, s=2, drop_path=0.2),  # [32, 16, 16]
+            ResNetPreAct(c_in=32, c_out=32),  # [32, 16, 16]
+            ResNetPreAct(c_in=32, c_out=32),  # [32, 16, 16]
+            ResNetPreAct(c_in=32, c_out=64, s=2),  # [64, 8, 8]
+            ResNetPreAct(c_in=64, c_out=64),  # [64, 8, 8]
+            ResNetPreAct(
+                c_in=64,
+                c_out=64,
+                act=partial(nn.ReLU6, inplace=True),
             ),  # [64, 8, 8]
-            ResNetBottleneck(
-                c1=64, c2=64, f_reduce=2, pre_normact=True, drop_path=0.1
-            ),  # [64, 8, 8]
         )
-        head = nn.Sequential(
+        self.head = nn.Sequential(
             GlobalAvgPool2d(),  # [64]
-            nn.ReLU(inplace=True),
-            LinearLayer(c1=64, c2=10, act_fn=noop_fn),
+            FCNormAct(c_in=64, c_out=10, act=nn.Identity),
         )
 
-        super().__init__(
-            stem,
-            backbone,
-            head,
+
+class ResNetWide_tiny_32x32(nn.Sequential):
+    def __init__(self, c_in=3):
+        super().__init__()
+        self.stem = nn.Sequential(
+            Conv3x3NormAct(c_in=c_in, c_out=16),  # [16, 32, 32]
+        )
+        self.backbone = nn.Sequential(
+            ResNetBasic(c_in=16, c_out=16),  # [16, 32, 32]
+            ResNetBasic(c_in=16, c_out=48, s=2, drop_path=0.2),  # [96, 16, 16]
+            ResNetBasic(c_in=48, c_out=48),  # [96, 16, 16]
+            ResNetBasic(c_in=48, c_out=96, s=2),  # [96, 8, 8]
+            ResNetBasic(
+                c_in=96,
+                c_out=96,
+                act=partial(nn.ReLU6, inplace=True),
+            ),  # [96, 8, 8]
+        )
+        self.head = nn.Sequential(
+            GlobalAvgPool2d(),  # [96]
+            FCNormAct(c_in=96, c_out=10, act=nn.Identity),
         )
 
 
 class ResNetBasic_tiny_32x32(nn.Sequential):
-    def __init__(self, c1=3):
-        stem = nn.Sequential(
-            Conv3x3(c1=c1, c2=16),  # [16, 32, 32]
-        )
-        backbone = nn.Sequential(
-            ResNetBasic(c1=16, c2=16),  # [16, 32, 32]
-            ResNetBasic(c1=16, c2=16),  # [16, 32, 32]
-            ResNetBasic(c1=16, c2=16),  # [16, 32, 32]
-            ResNetBasic(c1=16, c2=32, s=2),  # [32, 16, 16]
-            ResNetBasic(c1=32, c2=32),  # [32, 16, 16]
-            ResNetBasic(c1=32, c2=32),  # [32, 16, 16]
-            ResNetBasic(c1=32, c2=64, s=2),  # [64, 8, 8]
-            ResNetBasic(c1=64, c2=64),  # [64, 8, 8]
-            ResNetBasic(c1=64, c2=64),  # [64, 8, 8]
-        )
-        head = nn.Sequential(
-            GlobalAvgPool2d(),  # [64]
-            nn.ReLU(inplace=True),
-            LinearLayer(c1=64, c2=10, act_fn=noop_fn),
-        )
-
-        super().__init__(
-            stem,
-            backbone,
-            head,
-        )
-
-
-class CNN_ConvNeXt_32x32(nn.Sequential):
-    def __init__(self, c1=3):
-        stem = nn.Sequential(
-            Conv3x3(c1=c1, c2=32),  # [32, 32, 32]
-            nn.MaxPool2d(2, 2),  # [32, 16, 16]
-        )
-        backbone = nn.Sequential(
-            ConvNeXt(c1=32, c2=32),  # [32, 16, 16]
-            ConvNeXt(c1=32, c2=32),  # [32, 16, 16]
-            ConvNeXt(c1=32, c2=64, s=2),  # [64, 8, 8]
-            ConvNeXt(c1=64, c2=64, drop_path=0.1),  # [64, 8, 8]
-            ConvNeXt(c1=64, c2=64, drop_path=0.1),  # [64, 8, 8]
-        )
-        head = nn.Sequential(
-            GlobalAvgPool2d(),  # [64]
-            nn.ReLU(inplace=True),
-            LinearLayer(c1=64, c2=10, act_fn=noop_fn),
-        )
-
-        super().__init__(
-            stem,
-            backbone,
-            head,
-        )
-
-
-class MBNet_32x32(nn.Sequential):
-    def __init__(self, c1=3):
-        stem = nn.Sequential(
-            Conv3x3(c1=c1, c2=32),  # [32, 32, 32]
-            nn.MaxPool2d(2, 2),  # [32, 16, 16]
-        )
-        backbone = nn.Sequential(
-            FusedMBConv(c1=32, c2=32),  # [32, 16, 16]
-            # FusedMBConv(c1=32, c2=32),  # [32, 16, 16]
-            MBConv(c1=32, c2=64, s=2),  # [64, 8, 8]
-            # FusedMBConv(c1=64, c2=64, drop_path=0.1),  # [64, 8, 8]
-            MBConv(c1=64, c2=64, drop_path=0.1),  # [64, 8, 8]
-            MBConv(c1=64, c2=64, drop_path=0.1),  # [64, 8, 8]
-            MBConv(c1=64, c2=64, drop_path=0.1),  # [64, 8, 8]
-        )
-        head = nn.Sequential(
-            GlobalAvgPool2d(),  # [64]
-            nn.ReLU(inplace=True),
-            LinearLayer(c1=64, c2=10, act_fn=noop_fn),
-        )
-
-        super().__init__(
-            stem,
-            backbone,
-            head,
-        )
-
-
-class AEBackbone__MLP(nn.Module):
-    def __init__(self, encoder: nn.Module):
+    def __init__(self, c_in=3):
         super().__init__()
-        self.encoder = encoder
+        self.stem = nn.Sequential(
+            Conv3x3NormAct(c_in=c_in, c_out=16),  # [16, 32, 32]
+        )
+        self.backbone = nn.Sequential(
+            ResNetBasic(c_in=16, c_out=16),  # [16, 32, 32]
+            ResNetBasic(c_in=16, c_out=16),  # [16, 32, 32]
+            ResNetBasic(c_in=16, c_out=16),  # [16, 32, 32]
+            ResNetBasic(c_in=16, c_out=32, s=2, drop_path=0.2),  # [32, 16, 16]
+            ResNetBasic(c_in=32, c_out=32),  # [32, 16, 16]
+            ResNetBasic(c_in=32, c_out=32),  # [32, 16, 16]
+            ResNetBasic(c_in=32, c_out=64, s=2),  # [64, 8, 8]
+            ResNetBasic(c_in=64, c_out=64),  # [64, 8, 8]
+            ResNetBasic(
+                c_in=64,
+                c_out=64,
+                act=partial(nn.ReLU6, inplace=True),
+            ),  # [64, 8, 8]
+        )
         self.head = nn.Sequential(
-            LinearLayer(c1=128, c2=64),
-            LinearLayer(c1=64, c2=10),
+            GlobalAvgPool2d(),  # [64]
+            FCNormAct(c_in=64, c_out=10, act=nn.Identity),
         )
-
-    def freeze_encoder(self):
-        for param in self.encoder.parameters():
-            param.requires_grad = False
-
-    def forward(self, x):
-        x = self.encoder(x)  # [128]
-        x = self.head(x)  # [10]
-        return x
-
-
-class PreActBasic(nn.Module):
-    def __init__(self, c_in, c_out, stride=1):
-        super().__init__()
-        self.bn1 = nn.BatchNorm2d(c_in)
-        self.relu1 = nn.ReLU(inplace=True)
-        self.conv1 = nn.Conv2d(c_in, c_out, 3, stride=stride, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(c_out)
-        self.relu2 = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(c_out, c_out, 3, padding=1, bias=False)
-        self.proj = None
-        if stride != 1 or c_in != c_out:
-            self.proj = nn.Conv2d(c_in, c_out, 1, stride=stride, bias=False)
-
-    def forward(self, x):
-        y = self.conv1(self.relu1(self.bn1(x)))
-        y = self.conv2(self.relu2(self.bn2(y)))
-        skip = x if self.proj is None else self.proj(x)
-        return y + skip
-
-
-class ResNet_CIFAR(nn.Module):
-    def __init__(self, num_blocks=(3, 3, 3), widths=(16, 32, 64), num_classes=10):
-        super().__init__()
-        self.stem = nn.Conv2d(3, widths[0], 3, padding=1, bias=False)  # no pool
-        self.stage1 = self._make_stage(widths[0], widths[0], num_blocks[0], stride=1)
-        self.stage2 = self._make_stage(widths[0], widths[1], num_blocks[1], stride=2)
-        self.stage3 = self._make_stage(widths[1], widths[2], num_blocks[2], stride=2)
-        self.bn = nn.BatchNorm2d(widths[2])
-        self.relu = nn.ReLU(inplace=True)
-        self.head = nn.Linear(widths[2], num_classes)
-
-    def _make_stage(self, c_in, c_out, n, stride):
-        blocks = [PreActBasic(c_in, c_out, stride)]
-        for _ in range(n - 1):
-            blocks.append(PreActBasic(c_out, c_out, 1))
-        return nn.Sequential(*blocks)
-
-    def forward(self, x):
-        x = self.stem(x)
-        x = self.stage1(x)
-        x = self.stage2(x)
-        x = self.stage3(x)
-        x = self.relu(self.bn(x))
-        x = x.mean(dim=(2, 3))  # global avg pool
-        return self.head(x)
 
 
 if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
-    model = ResNetBasic_tiny_32x32()
+    model = Res2NetWide_32x32()
     summarize_model(model, dummy_ip, depth=2)
+    print(model)

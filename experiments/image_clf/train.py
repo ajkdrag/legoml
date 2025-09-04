@@ -8,12 +8,10 @@ from torch.utils.data.dataloader import DataLoader
 from experiments.data_utils import create_dataloaders
 from experiments.image_clf.config import Config
 from experiments.image_clf.models import (
-    CNN__MLP_tiny_32x32,
+    Res2Net_32x32,
     ResNetBasic_tiny_32x32,
-    CNN_ConvNeXt_32x32,
-    MBNet_32x32,
-    ResNet_tiny_32x32,
-    ResNet_CIFAR,
+    ResNetPreAct_tiny_32x32,
+    ResNetWide_tiny_32x32,
 )
 from experiments.image_clf.steps import eval_step, train_step
 from legoml.callbacks.checkpoint import CheckpointCallback
@@ -24,13 +22,13 @@ from legoml.core.engine import Engine
 from legoml.metrics.multiclass import MultiClassAccuracy
 from legoml.utils.log import get_logger
 from legoml.utils.seed import set_seed
-from legoml.utils.track import run
 from legoml.utils.summary import summarize_model
+from legoml.utils.track import run
 
 logger = get_logger(__name__)
 device = torch.device("mps")
 set_seed(42)
-config = Config(train_augmentation=True, max_epochs=30)
+config = Config(train_augmentation=True, max_epochs=30, train_bs=128)
 
 
 def build_optim_and_sched(
@@ -38,22 +36,26 @@ def build_optim_and_sched(
     model: torch.nn.Module,
     train_dl: DataLoader,
 ) -> tuple[torch.optim.Optimizer, lrs.LRScheduler]:
-    optimizer = torch.optim.AdamW(
+    optimizer = torch.optim.SGD(
         model.parameters(),
-        lr=1e-6,
-        weight_decay=0.0005,
+        lr=0.1 * (config.train_bs / 256),
+        momentum=0.9,
+        nesterov=True,
+        weight_decay=5e-4,
     )
     scheduler = lrs.OneCycleLR(
         optimizer,
+        max_lr=0.1 * (config.train_bs / 256),
         epochs=config.max_epochs,
         steps_per_epoch=len(train_dl),
-        max_lr=1e-2,
+        div_factor=10,
+        final_div_factor=1000,
     )
     return optimizer, scheduler
 
 
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = ResNetBasic_tiny_32x32()
+model = ResNetWide_tiny_32x32()
 optim, sched = build_optim_and_sched(config, model, train_dl)
 
 with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
@@ -64,14 +66,14 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
         optimizer=optim,
         scheduler=sched,
         device=device,
-        # scaler=torch.GradScaler(device=device.type),  # slow on M1 air
+        scaler=torch.GradScaler(device=device.type),  # slow on M1 air
     )
     trainer = Engine(train_step, train_context)
 
     eval_context = Context(
         config=config,
         model=model,
-        loss_fn=torch.nn.CrossEntropyLoss(),
+        loss_fn=torch.nn.CrossEntropyLoss(label_smoothing=0.1),
         device=device,
     )
     evaluator = Engine(
@@ -95,10 +97,11 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
         ]
     )
 
-    summarize_model(model, next(iter(train_dl)).inputs, depth=2)
+    summary = summarize_model(model, next(iter(train_dl)).inputs, depth=2)
     model.to(device)
+
     trainer.loop(train_dl, max_epochs=config.max_epochs)
     sess.log_params({"exp_config": asdict(config)})
-    sess.log_text("model", str(model))
+    sess.log_text("model", f"{summary}\n\n{model}")
     sess.log_params({"trainer": trainer.to_dict()})
     sess.log_params({"evaluator": evaluator.to_dict()})

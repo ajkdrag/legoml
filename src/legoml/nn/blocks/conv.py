@@ -2,20 +2,16 @@ from typing import Callable
 
 import torch.nn as nn
 
-from legoml.nn.activations import gelu_fn, relu6_fn, relu_fn, silu_fn
 from legoml.nn.layers import (
     BranchAndConcat,
-    Conv1x1,
-    Conv3x3,
-    ConvLayer,
-    DWConv,
+    Conv1x1NormAct,
+    Conv3x3NormAct,
+    ConvNormAct,
+    DWConvNormAct,
     ScaledResidual,
-    Shortcut,
     identity,
-    make_divisible,
-    noop_fn,
 )
-from legoml.nn.norms import bn2d_fn, ln2d_fn
+from legoml.nn.utils import make_divisible
 
 
 class ConvNeXt(nn.Module):
