@@ -7,6 +7,7 @@ from legoml.nn.blocks.common import Bottleneck
 from legoml.nn.layers import (
     Conv1x1NormAct,
     Conv3x3NormAct,
+    DWConvNormAct,
     NormActConv3x3,
     PoolShortcut,
     ScaledResidual,
@@ -230,5 +231,13 @@ Res2NetBottleneck = partial(
     block1=Conv1x1NormAct,
     block2=partial(Res2NetBlock, f_split=2),
     block3=Conv1x1NormAct,
+    shortcut=ResnetShortcut,
+)
+
+ResNeXtBottleneck = partial(
+    Bottleneck,
+    block1=Conv1x1NormAct,
+    block2=DWConvNormAct,
+    block3=partial(Conv1x1NormAct, act=nn.Identity),
     shortcut=ResnetShortcut,
 )
