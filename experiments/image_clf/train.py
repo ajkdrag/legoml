@@ -8,11 +8,8 @@ from torch.utils.data.dataloader import DataLoader
 from experiments.data_utils import create_dataloaders
 from experiments.image_clf.config import Config
 from experiments.image_clf.models import (
-    Res2Net_32x32,
-    ResNetBasic_tiny_32x32,
-    ResNetPreAct_tiny_32x32,
-    ResNetWide_tiny_32x32,
     MobileNet_tiny_32x32,
+    Res2Net_32x32,
 )
 from experiments.image_clf.steps import eval_step, train_step
 from legoml.callbacks.checkpoint import CheckpointCallback
@@ -56,14 +53,14 @@ def build_optim_and_sched(
 
 
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = MobileNet_tiny_32x32()
+model = Res2Net_32x32()
 optim, sched = build_optim_and_sched(config, model, train_dl)
 
 with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
     train_context = Context(
         config=config,
         model=model,
-        loss_fn=torch.nn.CrossEntropyLoss(),
+        loss_fn=torch.nn.CrossEntropyLoss(label_smoothing=0.1),
         optimizer=optim,
         scheduler=sched,
         device=device,
@@ -74,7 +71,7 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
     eval_context = Context(
         config=config,
         model=model,
-        loss_fn=torch.nn.CrossEntropyLoss(label_smoothing=0.1),
+        loss_fn=torch.nn.CrossEntropyLoss(),
         device=device,
     )
     evaluator = Engine(
