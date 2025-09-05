@@ -2,16 +2,16 @@ from functools import partial
 
 import torch.nn as nn
 
-from legoml.nn.layers import (
+from legoml.nn.conv import (
     Conv1x1NormAct,
     DWConvNormAct,
-    ScaledResidual,
 )
-from legoml.nn.primitives import ModuleCtor, identity
-from legoml.nn.utils import make_divisible
+from legoml.nn.ops import ScaledResidual
+from legoml.nn.types import ModuleCtor
+from legoml.nn.utils import identity, make_divisible
 
 
-class MBConv(nn.Sequential):
+class MobileNetBottleneck(nn.Sequential):
     def __init__(
         self,
         *,
@@ -21,7 +21,7 @@ class MBConv(nn.Sequential):
         s: int = 1,
         f_expand: int = 4,
         block1: ModuleCtor = Conv1x1NormAct,
-        block2: ModuleCtor = DWConvNormAct,
+        block2: ModuleCtor = lambda *, c_in, c_out, s: DWConvNormAct(c_in=c_in, s=s),
         block3: ModuleCtor = partial(Conv1x1NormAct, act=nn.Identity),
         shortcut: ModuleCtor = nn.Identity,
         act: ModuleCtor = partial(nn.ReLU6, inplace=True),
@@ -46,16 +46,14 @@ class MBConv(nn.Sequential):
         block2 = block2(c_in=c_mid, c_out=c_mid, s=s)
         block3 = block3(c_in=c_mid, c_out=c_out, s=1)
         shortcut = shortcut(c_in=c_in, c_out=c_out, s=s)
-
-        layers = [block1, block2, block3]
+        block = nn.Sequential(block1, block2, block3)
 
         if apply_residual:
-            layers = [
-                ScaledResidual(
-                    fn=nn.Sequential(*layers),
-                    shortcut=shortcut,
-                    drop_prob=drop_path,
-                )
-            ]
+            block = ScaledResidual(
+                fn=block,
+                shortcut=shortcut,
+                drop_prob=drop_path,
+            )
 
-        self.block = nn.Sequential(*layers, act())
+        self.block = block
+        self.act = act()

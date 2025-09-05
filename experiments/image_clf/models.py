@@ -3,20 +3,16 @@ from functools import partial
 import torch
 import torch.nn as nn
 
+from legoml.nn.blocks.mobilenet import MobileNetBottleneck
 from legoml.nn.blocks.resnet import (
     Res2NetBlock,
     Res2NetBottleneck,
     ResNetBasic,
     ResNetPreAct,
-    ResnetShortcut,
 )
-from legoml.nn.layers import (
-    Conv1x1NormAct,
-    Conv3x3NormAct,
-    DWSepConvNormAct,
-    FCNormAct,
-    GlobalAvgPool2d,
-)
+from legoml.nn.conv import Conv3x3NormAct
+from legoml.nn.mlp import FCNormAct
+from legoml.nn.pool import GlobalAvgPool2d
 from legoml.utils.summary import summarize_model
 
 
@@ -173,8 +169,28 @@ class ResNetBasic_tiny_32x32(nn.Sequential):
         )
 
 
+class MobileNet_tiny_32x32(nn.Sequential):
+    def __init__(self, c_in=3):
+        super().__init__()
+        self.stem = nn.Sequential(
+            Conv3x3NormAct(c_in=c_in, c_out=32),  # [16, 32, 32]
+        )
+        self.backbone = nn.Sequential(
+            MobileNetBottleneck(c_in=32, c_out=32),  # [16, 32, 32]
+            MobileNetBottleneck(c_in=32, c_out=32),  # [16, 32, 32]
+            MobileNetBottleneck(c_in=32, c_out=64, s=2),  # [32, 16, 16]
+            MobileNetBottleneck(c_in=64, c_out=64),  # [32, 16, 16]
+            MobileNetBottleneck(c_in=64, c_out=64),  # [32, 16, 16]
+            MobileNetBottleneck(c_in=64, c_out=128, s=2),  # [64, 8, 8]
+            MobileNetBottleneck(c_in=128, c_out=128),  # [64, 8, 8]
+        )
+        self.head = nn.Sequential(
+            GlobalAvgPool2d(),  # [64]
+            FCNormAct(c_in=128, c_out=10, act=nn.Identity),
+        )
+
+
 if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
-    model = Res2NetWide_32x32()
+    model = MobileNet_tiny_32x32()
     summarize_model(model, dummy_ip, depth=2)
-    print(model)

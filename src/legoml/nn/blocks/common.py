@@ -2,8 +2,8 @@ from functools import partial
 
 import torch.nn as nn
 
-from legoml.nn.layers import ScaledResidual
-from legoml.nn.primitives import ModuleCtor
+from legoml.nn.ops import ScaledResidual
+from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import make_divisible
 
 
@@ -29,7 +29,7 @@ class Bottleneck(nn.Sequential):
         c_mid = c_mid or make_divisible(c_out / f_reduce)
 
         block1 = block1(c_in=c_in, c_out=c_mid, s=1)
-        block2 = block2(c_in=c_mid, c_out=c_mid, s=s)
+        block2 = block2(c_in=c_mid, c_out=c_mid, s=s)  # ResNet-D style stride
         block3 = block3(c_in=c_mid, c_out=c_out, s=1)
         shortcut = shortcut(c_in=c_in, c_out=c_out, s=s)
 

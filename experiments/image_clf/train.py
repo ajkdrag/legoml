@@ -12,6 +12,7 @@ from experiments.image_clf.models import (
     ResNetBasic_tiny_32x32,
     ResNetPreAct_tiny_32x32,
     ResNetWide_tiny_32x32,
+    MobileNet_tiny_32x32,
 )
 from experiments.image_clf.steps import eval_step, train_step
 from legoml.callbacks.checkpoint import CheckpointCallback
@@ -55,7 +56,7 @@ def build_optim_and_sched(
 
 
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = ResNetWide_tiny_32x32()
+model = MobileNet_tiny_32x32()
 optim, sched = build_optim_and_sched(config, model, train_dl)
 
 with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:

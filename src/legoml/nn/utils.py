@@ -1,3 +1,8 @@
+import torch.nn as nn
+
+identity = nn.Identity()
+
+
 def autopad(k: int, p: int | None = None, d: int = 1):
     """Utility for padding to 'same' shape outputs."""
     if d > 1:
