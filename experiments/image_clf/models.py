@@ -67,7 +67,7 @@ class ConvNeXt_SA_32x32(nn.Sequential):
         super().__init__()
         Conv1x1SA = ApplyAfter(
             main=Conv1x1,
-            after=SpatialAttention,
+            after=nn.Identity,
         )
 
         self.stem = nn.Sequential(

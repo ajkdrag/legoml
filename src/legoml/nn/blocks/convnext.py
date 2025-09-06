@@ -42,6 +42,7 @@ class ConvNeXtBlock(nn.Sequential):
             c_in=c_in,
             k=3,
             norm=LayerNorm2d,
+            act=None,
             s=s,
         ),
         block2: ModuleCtor = partial(Conv1x1NormAct, norm=None, act=nn.GELU),
