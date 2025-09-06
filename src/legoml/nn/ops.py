@@ -22,11 +22,26 @@ class ChannelShuffle(nn.Sequential):
 
 
 class LayerScale(nn.Module):
-    def __init__(self, init_value: float, dimensions: int):
-        super().__init__()
-        self.gamma = nn.Parameter(
-            init_value * torch.ones((dimensions)), requires_grad=True
-        )
+    """
+    Dimension-agnostic LayerScale.
+    - If input is (N, C, H, W): gamma -> (1, C, 1, 1)
+    - If input is (N, D):       gamma -> (1, D)
+    - If input is (N, L, D):    gamma -> (1, 1, D)
+    """
 
-    def forward(self, x):
-        return self.gamma[None, ..., None, None] * x
+    def __init__(self, *, dims: int, init_value: float = 1e-5):
+        super().__init__()
+        self.gamma = nn.Parameter(init_value * torch.ones(dims), requires_grad=True)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 4:  # (N, C, H, W) -> CNNs
+            shape = (1, -1, 1, 1)
+        elif x.dim() == 3:  # (N, L, D) -> Transformers
+            shape = (1, 1, -1)
+        elif x.dim() == 2:  # (N, D) -> MLPs
+            shape = (1, -1)
+        else:
+            raise ValueError(f"Unsupported input rank {x.dim()} for LayerScaler")
+
+        gamma = self.gamma.view(*shape)
+        return x * gamma

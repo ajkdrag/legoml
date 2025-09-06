@@ -259,4 +259,3 @@ if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
     model = ConvNeXt_SE_32x32()
     summarize_model(model, dummy_ip, depth=2)
-    print(model)

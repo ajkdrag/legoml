@@ -115,8 +115,8 @@ class ScaledResidual(nn.Module):
                 )
             layers.append(
                 LayerScale(
-                    layer_scale_init,
-                    layer_scale_dimensions,
+                    init_value=layer_scale_init,
+                    dims=layer_scale_dimensions,
                 )
             )
         if drop_prob > 0.0:

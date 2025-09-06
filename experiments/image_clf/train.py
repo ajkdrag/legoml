@@ -8,7 +8,7 @@ from torch.utils.data.dataloader import DataLoader
 from experiments.data_utils import create_dataloaders
 from experiments.image_clf.config import Config
 from experiments.image_clf.models import (
-    ConvNeXt_SA_32x32,
+    ConvNeXt_SE_32x32,
     MobileNet_tiny_32x32,
     Res2Net_32x32,
 )
@@ -58,7 +58,7 @@ def build_optim_and_sched(
 
 
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = ConvNeXt_SA_32x32()
+model = ConvNeXt_SE_32x32()
 optim, sched = build_optim_and_sched(config, model, train_dl)
 
 with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
