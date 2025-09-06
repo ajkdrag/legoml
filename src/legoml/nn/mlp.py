@@ -3,7 +3,6 @@ from functools import partial
 import torch.nn as nn
 
 from legoml.nn.types import ModuleCtor
-from legoml.nn.utils import identity
 
 
 class FCNormAct(nn.Sequential):
@@ -30,8 +29,8 @@ class FCNormAct(nn.Sequential):
         *,
         c_in: int,
         c_out: int | None = None,
-        norm: ModuleCtor = nn.BatchNorm1d,
-        act: ModuleCtor = partial(nn.ReLU, inplace=True),
+        norm: ModuleCtor | None = nn.BatchNorm1d,
+        act: ModuleCtor | None = partial(nn.ReLU, inplace=True),
         dropout: float = 0.0,
     ):
         super().__init__()
@@ -39,6 +38,9 @@ class FCNormAct(nn.Sequential):
 
         # TODO: Should bias be set to False like ConvLayer?
         self.block = nn.Linear(c_in, c_out)
-        self.norm = norm(c_out)
-        self.act = act()
-        self.dropout = nn.Dropout(dropout) if dropout > 0.0 else identity
+        if norm:
+            self.norm = norm(c_out)
+        if act:
+            self.act = act()
+        if dropout > 0.0:
+            self.dropout = nn.Dropout(dropout)

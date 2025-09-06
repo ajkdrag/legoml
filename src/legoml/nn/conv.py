@@ -3,7 +3,7 @@ from functools import partial
 import torch.nn as nn
 
 from legoml.nn.types import ModuleCtor
-from legoml.nn.utils import autopad, identity
+from legoml.nn.utils import autopad
 
 
 class ConvNormAct(nn.Sequential):
@@ -45,8 +45,8 @@ class ConvNormAct(nn.Sequential):
         p: int | None = None,
         g: int = 1,
         d: int = 1,
-        norm: ModuleCtor = nn.BatchNorm2d,
-        act: ModuleCtor = partial(nn.ReLU, inplace=True),
+        norm: ModuleCtor | None = nn.BatchNorm2d,
+        act: ModuleCtor | None = partial(nn.ReLU, inplace=True),
         dropout=0.0,
         **kwargs,
     ):
@@ -65,9 +65,12 @@ class ConvNormAct(nn.Sequential):
             bias=False,
             **kwargs,
         )
-        self.norm = norm(c_out)
-        self.act = act()
-        self.dropout = nn.Dropout(dropout) if dropout > 0.0 else identity
+        if norm:
+            self.norm = norm(c_out)
+        if act:
+            self.act = act()
+        if dropout > 0.0:
+            self.dropout = nn.Dropout(dropout)
 
 
 class NormActConv(nn.Sequential):
@@ -109,8 +112,8 @@ class NormActConv(nn.Sequential):
         p: int | None = None,
         g: int = 1,
         d: int = 1,
-        norm: ModuleCtor = nn.BatchNorm2d,
-        act: ModuleCtor = partial(nn.ReLU, inplace=True),
+        norm: ModuleCtor | None = nn.BatchNorm2d,
+        act: ModuleCtor | None = partial(nn.ReLU, inplace=True),
         dropout=0.0,
         bias=False,
         **kwargs,
@@ -119,8 +122,10 @@ class NormActConv(nn.Sequential):
         c_out = c_out or c_in
         p = autopad(k, p, d)
 
-        self.norm = norm(c_in)
-        self.act = act()
+        if norm:
+            self.norm = norm(c_in)
+        if act:
+            self.act = act()
         self.block = nn.Conv2d(
             c_in,
             c_out,
@@ -132,7 +137,9 @@ class NormActConv(nn.Sequential):
             bias=bias,
             **kwargs,
         )
-        self.dropout = nn.Dropout(dropout) if dropout > 0.0 else identity
+
+        if dropout > 0.0:
+            self.dropout = nn.Dropout(dropout)
 
 
 class DWConvNormAct(ConvNormAct):
@@ -172,10 +179,9 @@ class DWConvNormAct(ConvNormAct):
         s: int = 1,
         p: int | None = None,
         d: int = 1,
-        norm: ModuleCtor = nn.BatchNorm2d,
-        act: ModuleCtor = partial(nn.ReLU, inplace=True),
+        norm: ModuleCtor | None = nn.BatchNorm2d,
+        act: ModuleCtor | None = partial(nn.ReLU, inplace=True),
         dropout=0.0,
-        **kwargs,
     ):
         super().__init__(
             c_in=c_in,
@@ -188,7 +194,6 @@ class DWConvNormAct(ConvNormAct):
             norm=norm,
             act=act,
             dropout=dropout,
-            **kwargs,
         )
 
 
@@ -233,9 +238,9 @@ class DWSepConvNormAct(nn.Sequential):
         p: int | None = None,
         d: int = 1,
         dropout=0.0,
-        norm: ModuleCtor = nn.BatchNorm2d,
-        dw_act: ModuleCtor = partial(nn.ReLU, inplace=True),
-        pw_act: ModuleCtor = nn.Identity,
+        norm: ModuleCtor | None = nn.BatchNorm2d,
+        dw_act: ModuleCtor | None = partial(nn.ReLU, inplace=True),
+        pw_act: ModuleCtor | None = None,
     ):
         super().__init__()
         c_out = c_out or c_in
@@ -257,6 +262,9 @@ class DWSepConvNormAct(nn.Sequential):
         )
 
 
+Conv1x1 = partial(ConvNormAct, k=1, norm=None, act=None)
+Conv3x3 = partial(ConvNormAct, k=3, norm=None, act=None)
+DWConv = partial(DWConvNormAct, norm=None, act=None)
 Conv3x3NormAct = partial(ConvNormAct, k=3)
 Conv1x1NormAct = partial(ConvNormAct, k=1)
 NormActConv3x3 = partial(NormActConv, k=3)

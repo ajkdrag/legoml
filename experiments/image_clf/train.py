@@ -10,6 +10,7 @@ from experiments.image_clf.config import Config
 from experiments.image_clf.models import (
     MobileNet_tiny_32x32,
     Res2Net_32x32,
+    ConvNeXt_tiny_32x32,
 )
 from experiments.image_clf.steps import eval_step, train_step
 from legoml.callbacks.checkpoint import CheckpointCallback
@@ -53,7 +54,7 @@ def build_optim_and_sched(
 
 
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = Res2Net_32x32()
+model = ConvNeXt_tiny_32x32()
 optim, sched = build_optim_and_sched(config, model, train_dl)
 
 with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
@@ -64,7 +65,7 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
         optimizer=optim,
         scheduler=sched,
         device=device,
-        scaler=torch.GradScaler(device=device.type),  # slow on M1 air
+        # scaler=torch.GradScaler(device=device.type),  # slow on M1 air
     )
     trainer = Engine(train_step, train_context)
 

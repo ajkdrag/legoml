@@ -3,6 +3,7 @@ from functools import partial
 import torch
 import torch.nn as nn
 
+from legoml.nn.blocks.convnext import ConvNeXtBlock, ConvNeXtDownsample
 from legoml.nn.blocks.mobilenet import FusedMBConv, MBConv
 from legoml.nn.blocks.resnet import (
     Res2NetBlock,
@@ -33,6 +34,31 @@ class CNN__MLP_tiny_32x32(nn.Sequential):
         self.head = nn.Sequential(
             GlobalAvgPool2d(),  # [64]
             FCNormAct(c_in=64, c_out=10, act=nn.Identity),
+        )
+
+
+class ConvNeXt_tiny_32x32(nn.Sequential):
+    def __init__(self, c_in=3):
+        super().__init__()
+        self.stem = nn.Sequential(
+            Conv3x3NormAct(c_in=c_in, c_out=16),  # [16, 32, 32]
+        )
+        self.backbone = nn.Sequential(
+            ConvNeXtBlock(c_in=16, c_out=16),  # [16, 32, 32]
+            ConvNeXtBlock(c_in=16, c_out=16),  # [16, 32, 32]
+            ConvNeXtDownsample(c_in=16, c_out=48, s=2),  # [96, 16, 16]
+            ConvNeXtBlock(c_in=48, c_out=48),  # [96, 16, 16]
+            ConvNeXtBlock(c_in=48, c_out=48),  # [96, 16, 16]
+            ConvNeXtBlock(c_in=48, c_out=48),  # [96, 16, 16]
+            ConvNeXtBlock(c_in=48, c_out=48),  # [96, 16, 16]
+            ConvNeXtBlock(c_in=48, c_out=48),  # [96, 16, 16]
+            ConvNeXtDownsample(c_in=48, c_out=96, s=2),  # [96, 8, 8]
+            ConvNeXtBlock(c_in=96, c_out=96),  # [96, 8, 8]
+            ConvNeXtBlock(c_in=96, c_out=96),  # [96, 8, 8]
+        )
+        self.head = nn.Sequential(
+            GlobalAvgPool2d(),  # [96]
+            FCNormAct(c_in=96, c_out=10, act=nn.Identity),
         )
 
 
@@ -178,5 +204,5 @@ class MobileNet_tiny_32x32(nn.Sequential):
 
 if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
-    model = Res2Net_32x32()
+    model = ConvNeXt_tiny_32x32()
     summarize_model(model, dummy_ip, depth=2)
