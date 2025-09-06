@@ -3,6 +3,7 @@ from functools import partial
 import torch
 import torch.nn as nn
 
+from legoml.nn.ops import LayerScale
 from legoml.nn.regularization import DropPath
 from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import identity, make_divisible
@@ -81,10 +82,10 @@ class BranchAndConcat(nn.Module):
 
 
 class ScaledResidual(nn.Module):
-    """Residual connection with learnable scaling and stochastic depth.
+    """Residual connection with stochastic depth.
 
-    Implements residual connection with learnable alpha scaling parameter and
-    optional DropPath for stochastic depth regularization during training.
+    Implements residual connection with optional DropPath for
+    stochastic depth regularization during training.
 
     Parameters
     ----------
@@ -94,8 +95,6 @@ class ScaledResidual(nn.Module):
         Shortcut connection. Defaults to identity
     drop_prob : float, default=0.0
         Drop path probability for stochastic depth
-    alpha_init : float, default=1.0
-        Initial value for learnable scaling parameter
     """
 
     def __init__(
@@ -104,16 +103,27 @@ class ScaledResidual(nn.Module):
         fn: nn.Module,
         shortcut: nn.Module | None = None,
         drop_prob: float = 0.0,
-        alpha_init: float = 1.0,
+        layer_scale_init: float = 0.0,
+        layer_scale_dimensions: int | None = None,
     ):
         super().__init__()
+        layers = [fn]
+        if layer_scale_init > 0.0:
+            if layer_scale_dimensions is None:
+                raise ValueError(
+                    "layer_scale_dimensions must be specified if layer_scale_init > 0.0"
+                )
+            layers.append(
+                LayerScale(
+                    layer_scale_init,
+                    layer_scale_dimensions,
+                )
+            )
         if drop_prob > 0.0:
-            fn = nn.Sequential(fn, DropPath(drop_prob))
+            layers.append(DropPath(drop_prob))
 
-        self.block = fn
+        self.block = nn.Sequential(*layers)
         self.shortcut = shortcut or identity
-        self.alpha = nn.Parameter(torch.tensor(alpha_init))
 
     def forward(self, x):
-        out = self.block(x)
-        return self.shortcut(x) + self.alpha * out
+        return self.shortcut(x) + self.block(x)
