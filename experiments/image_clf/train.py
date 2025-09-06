@@ -2,6 +2,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 import torch
+import torch.nn as nn
 import torch.optim.lr_scheduler as lrs
 from torch.utils.data.dataloader import DataLoader
 
@@ -33,26 +34,58 @@ else:
     device = torch.device("cpu")
 logger.info("Using device: %s", device.type)
 set_seed(42)
-config = Config(train_augmentation=True, max_epochs=30, train_bs=128)
+config = Config(train_augmentation=True, max_epochs=50, train_bs=128)
 
 
 def build_optim_and_sched(
     config: Config,
-    model: torch.nn.Module,
+    model: nn.Module,
     train_dl: DataLoader,
-) -> tuple[torch.optim.Optimizer, lrs.LRScheduler]:
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=0.1 * (config.train_bs / 256),
+) -> tuple[torch.optim.Optimizer, lrs._LRScheduler]:
+    # Separate params: no WD on BN/bias
+    decay, no_decay = [], []
+    for m in model.modules():
+        if isinstance(
+            m,
+            (
+                nn.BatchNorm1d,
+                nn.BatchNorm2d,
+                nn.LayerNorm,
+                nn.GroupNorm,
+            ),
+        ):
+            for p in m.parameters(recurse=False):
+                if p.requires_grad:
+                    no_decay.append(p)
+        else:
+            for name, p in m.named_parameters(recurse=False):
+                if not p.requires_grad:
+                    continue
+                if name.endswith("bias"):
+                    no_decay.append(p)
+                else:
+                    decay.append(p)
+
+    max_lr = 0.01 * (config.train_bs / 256)  # = 0.05 for bs=128
+
+    optimizer = torch.optim.SGD(
+        params=model.parameters(),
+        lr=max_lr,
+        momentum=0.9,
+        nesterov=True,
         weight_decay=5e-4,
     )
+
     scheduler = lrs.OneCycleLR(
         optimizer,
-        max_lr=0.1 * (config.train_bs / 256),
+        max_lr=max_lr,
         epochs=config.max_epochs,
         steps_per_epoch=len(train_dl),
+        pct_start=0.2,
+        anneal_strategy="cos",
         div_factor=10,
         final_div_factor=1000,
+        three_phase=False,
     )
     return optimizer, scheduler
 
