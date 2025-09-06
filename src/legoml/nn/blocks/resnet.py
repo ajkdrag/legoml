@@ -3,15 +3,14 @@ from functools import partial
 import torch
 import torch.nn as nn
 
-from legoml.nn.blocks.common import Bottleneck
 from legoml.nn.conv import (
     Conv1x1NormAct,
     Conv3x3NormAct,
     DWConvNormAct,
     NormActConv3x3,
 )
-from legoml.nn.ops import ScaledResidual
 from legoml.nn.shortcut import PoolShortcut
+from legoml.nn.struct import Bottleneck, ScaledResidual
 from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import autopad, identity
 

@@ -7,7 +7,7 @@ from legoml.nn.conv import (
     Conv3x3NormAct,
     DWSepConvNormAct,
 )
-from legoml.nn.ops import ScaledResidual
+from legoml.nn.struct import ScaledResidual
 from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import identity, make_divisible
 

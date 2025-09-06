@@ -2,10 +2,10 @@ from functools import partial
 
 import torch.nn as nn
 
-from legoml.nn.activations import LayerNorm2d
+from legoml.nn.activation import LayerNorm2d
 from legoml.nn.blocks.resnet import ResNetShortcut
 from legoml.nn.conv import Conv1x1, Conv1x1NormAct, DWConv, NormActConv
-from legoml.nn.ops import ScaledResidual
+from legoml.nn.struct import ScaledResidual
 from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import make_divisible
 
@@ -40,7 +40,7 @@ class ConvNeXtBlock(nn.Sequential):
         f_expand: int = 4,
         block1: ModuleCtor = lambda *, c_in, c_out, s: DWConv(
             c_in=c_in,
-            k=7,
+            k=3,
             norm=LayerNorm2d,
             s=s,
         ),

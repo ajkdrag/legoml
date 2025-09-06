@@ -8,9 +8,9 @@ from torch.utils.data.dataloader import DataLoader
 from experiments.data_utils import create_dataloaders
 from experiments.image_clf.config import Config
 from experiments.image_clf.models import (
+    ConvNeXt_SA_32x32,
     MobileNet_tiny_32x32,
     Res2Net_32x32,
-    ConvNeXt_tiny_32x32,
 )
 from experiments.image_clf.steps import eval_step, train_step
 from legoml.callbacks.checkpoint import CheckpointCallback
@@ -35,11 +35,9 @@ def build_optim_and_sched(
     model: torch.nn.Module,
     train_dl: DataLoader,
 ) -> tuple[torch.optim.Optimizer, lrs.LRScheduler]:
-    optimizer = torch.optim.SGD(
+    optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=0.1 * (config.train_bs / 256),
-        momentum=0.9,
-        nesterov=True,
         weight_decay=5e-4,
     )
     scheduler = lrs.OneCycleLR(
@@ -54,7 +52,7 @@ def build_optim_and_sched(
 
 
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = ConvNeXt_tiny_32x32()
+model = ConvNeXt_SA_32x32()
 optim, sched = build_optim_and_sched(config, model, train_dl)
 
 with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
