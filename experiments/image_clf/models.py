@@ -3,7 +3,7 @@ from functools import partial
 import torch
 import torch.nn as nn
 
-from legoml.nn.attention import SpatialAttention
+from legoml.nn.attention import SEAttention
 from legoml.nn.blocks.convnext import ConvNeXtBlock, ConvNeXtDownsample
 from legoml.nn.blocks.mobilenet import FusedMBConv, MBConv
 from legoml.nn.blocks.resnet import (
@@ -15,7 +15,7 @@ from legoml.nn.blocks.resnet import (
 from legoml.nn.conv import Conv1x1, Conv3x3NormAct
 from legoml.nn.mlp import FCNormAct
 from legoml.nn.pool import GlobalAvgPool2d
-from legoml.nn.struct import ApplyAfter
+from legoml.nn.struct import ApplyAfterCtor
 from legoml.utils.summary import summarize_model
 
 
@@ -62,13 +62,10 @@ class ConvNeXt_tiny_32x32(nn.Sequential):
         )
 
 
-class ConvNeXt_SA_32x32(nn.Sequential):
+class ConvNeXt_SE_32x32(nn.Sequential):
     def __init__(self, c_in=3):
         super().__init__()
-        Conv1x1SA = ApplyAfter(
-            main=Conv1x1,
-            after=nn.Identity,
-        )
+        Conv1x1SECtor = partial(ApplyAfterCtor, main=Conv1x1)
 
         self.stem = nn.Sequential(
             Conv3x3NormAct(c_in=c_in, c_out=32),  # [32, 32, 32]
@@ -77,16 +74,40 @@ class ConvNeXt_SA_32x32(nn.Sequential):
             ConvNeXtBlock(
                 c_in=32,
                 c_out=32,
-                block3=Conv1x1SA,
+                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=32)),
             ),  # [32, 32, 32]
-            ConvNeXtBlock(c_in=32, c_out=32, block3=Conv1x1SA),  # [32, 32, 32]
+            ConvNeXtBlock(
+                c_in=32,
+                c_out=32,
+                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=32)),
+            ),  # [32, 32, 32]
             ConvNeXtDownsample(c_in=32, c_out=64, s=2),  # [64, 16, 16]
-            ConvNeXtBlock(c_in=64, c_out=64, block3=Conv1x1SA),  # [64, 16, 16]
-            ConvNeXtBlock(c_in=64, c_out=64, block3=Conv1x1SA),  # [64, 16, 16]
-            ConvNeXtBlock(c_in=64, c_out=64, block3=Conv1x1SA),  # [64, 16, 16]
-            ConvNeXtBlock(c_in=64, c_out=64, block3=Conv1x1SA),  # [64, 16, 16]
+            ConvNeXtBlock(
+                c_in=64,
+                c_out=64,
+                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=64)),
+            ),  # [64, 16, 16]
+            ConvNeXtBlock(
+                c_in=64,
+                c_out=64,
+                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=64)),
+            ),  # [64, 16, 16]
+            ConvNeXtBlock(
+                c_in=64,
+                c_out=64,
+                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=64)),
+            ),  # [64, 16, 16]
+            ConvNeXtBlock(
+                c_in=64,
+                c_out=64,
+                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=64)),
+            ),  # [64, 16, 16]
             ConvNeXtDownsample(c_in=64, c_out=128, s=2),  # [128, 8, 8]
-            ConvNeXtBlock(c_in=128, c_out=128, block3=Conv1x1SA),  # [128, 8, 8]
+            ConvNeXtBlock(
+                c_in=128,
+                c_out=128,
+                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=128)),
+            ),  # [128, 8, 8]
         )
         self.head = nn.Sequential(
             GlobalAvgPool2d(),  # [96]
@@ -236,5 +257,6 @@ class MobileNet_tiny_32x32(nn.Sequential):
 
 if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
-    model = ConvNeXt_SA_32x32()
+    model = ConvNeXt_SE_32x32()
     summarize_model(model, dummy_ip, depth=2)
+    print(model)

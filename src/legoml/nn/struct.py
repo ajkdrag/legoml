@@ -8,13 +8,13 @@ from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import identity, make_divisible
 
 
-class ApplyAfter:
+class ApplyAfterCtor:
     """
     A factory class that creates an nn.Sequential module by instantiating
     a main block and then an 'after' block.
     """
 
-    def __init__(self, main, after):
+    def __init__(self, main: ModuleCtor, after: ModuleCtor):
         self.main = main
         self.after = after
 
