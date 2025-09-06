@@ -25,7 +25,13 @@ from legoml.utils.summary import summarize_model
 from legoml.utils.track import run
 
 logger = get_logger(__name__)
-device = torch.device("mps")
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
+logger.info("Using device: %s", device.type)
 set_seed(42)
 config = Config(train_augmentation=True, max_epochs=30, train_bs=128)
 
