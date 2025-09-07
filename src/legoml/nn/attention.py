@@ -6,6 +6,7 @@ import torch.nn as nn
 from legoml.nn.conv import Conv1x1NormAct, Conv3x3NormAct
 from legoml.nn.pool import GlobalAvgPool2d
 from legoml.nn.types import ModuleCtor
+from legoml.nn.utils import make_divisible
 
 
 class SpatialAttention(nn.Module):
@@ -34,13 +35,14 @@ class SEAttention(nn.Module):
         *,
         c_in: int,
         c_mid: int | None = None,
+        f_reduce: int = 4,
         pool: ModuleCtor = partial(GlobalAvgPool2d, keep_dim=True),
         block1: ModuleCtor = partial(Conv1x1NormAct, norm=None),
         block2: ModuleCtor = partial(Conv1x1NormAct, norm=None, act=nn.Sigmoid),
         act=partial(nn.ReLU, inplace=True),
     ):
         super().__init__()
-        c_mid = c_mid or c_in // 4
+        c_mid = c_mid or make_divisible(c_in / f_reduce)
         self.block = nn.Sequential(
             pool(),
             block1(c_in=c_in, c_out=c_mid),
