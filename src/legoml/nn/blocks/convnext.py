@@ -64,7 +64,5 @@ class ConvNeXtBlock(nn.Sequential):
             fn=nn.Sequential(block1, block2, block3),
             shortcut=shortcut,
             drop_prob=drop_path,
-            layer_scale_init=1e-6,
-            layer_scale_dimensions=c_out,
         )
         self.act = act()

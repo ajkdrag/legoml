@@ -1,4 +1,5 @@
-from typing import Callable, Any
+from typing import Any, Callable
+
 from legoml.core.callback import Callback
 from legoml.core.context import Context
 from legoml.core.event import EVENT_TO_METHOD, Events

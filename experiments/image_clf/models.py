@@ -112,7 +112,12 @@ class ConvNeXt_SE_32x32(nn.Sequential):
         self.head = nn.Sequential(
             GlobalAvgPool2d(),  # [128]
             nn.LayerNorm(128),
-            FCNormAct(c_in=128, c_out=10, act=nn.Identity),
+            FCNormAct(
+                c_in=128,
+                c_out=10,
+                norm=None,
+                act=None,
+            ),
         )
 
 
@@ -182,7 +187,8 @@ class ResNetPreAct_tiny_32x32(nn.Sequential):
             ResNetPreAct(c_in=16, c_out=16),  # [16, 32, 32]
             ResNetPreAct(c_in=16, c_out=16),  # [16, 32, 32]
             ResNetPreAct(c_in=16, c_out=16),  # [16, 32, 32]
-            ResNetPreAct(c_in=16, c_out=32, s=2, drop_path=0.2),  # [32, 16, 16]
+            ResNetPreAct(c_in=16, c_out=32, s=2,
+                         drop_path=0.2),  # [32, 16, 16]
             ResNetPreAct(c_in=32, c_out=32),  # [32, 16, 16]
             ResNetPreAct(c_in=32, c_out=32),  # [32, 16, 16]
             ResNetPreAct(c_in=32, c_out=64, s=2),  # [64, 8, 8]
@@ -259,4 +265,5 @@ class MobileNet_tiny_32x32(nn.Sequential):
 if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
     model = ConvNeXt_SE_32x32()
-    summarize_model(model, dummy_ip, depth=2)
+    # summarize_model(model, dummy_ip, depth=2)
+    print([nm for nm, p in model.named_parameters()])

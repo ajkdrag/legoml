@@ -20,6 +20,7 @@ from legoml.callbacks.metric import MetricsCallback
 from legoml.core.context import Context
 from legoml.core.engine import Engine
 from legoml.metrics.multiclass import MultiClassAccuracy
+from legoml.nn.ops import LayerScale
 from legoml.utils.log import get_logger
 from legoml.utils.seed import set_seed
 from legoml.utils.summary import summarize_model
@@ -34,7 +35,34 @@ else:
     device = torch.device("cpu")
 logger.info("Using device: %s", device.type)
 set_seed(42)
-config = Config(train_augmentation=True, max_epochs=30, train_bs=128)
+config = Config(train_augmentation=True, max_epochs=50, train_bs=128)
+
+
+def separate_parameters(model):
+    parameters_decay = set()
+    parameters_no_decay = set()
+    modules_weight_decay = (nn.Linear, nn.Conv2d)
+    modules_no_weight_decay = (nn.LayerNorm, nn.BatchNorm2d, nn.GroupNorm)
+
+    for m_name, m in model.named_modules():
+        for param_name, param in m.named_parameters():
+            full_param_name = f"{m_name}.{param_name}" if m_name else param_name
+            if isinstance(m, modules_no_weight_decay):
+                parameters_no_decay.add(full_param_name)
+            elif param_name.endswith("bias"):
+                parameters_no_decay.add(full_param_name)
+            elif isinstance(m, LayerScale) and param_name.endswith("gamma"):
+                parameters_no_decay.add(full_param_name)
+            elif isinstance(m, modules_weight_decay):
+                parameters_decay.add(full_param_name)
+
+    # sanity check
+    assert len(parameters_decay & parameters_no_decay) == 0
+    assert len(parameters_decay) + len(parameters_no_decay) == len(
+        list(model.parameters())
+    )
+
+    return parameters_decay, parameters_no_decay
 
 
 def build_optim_and_sched(
@@ -42,38 +70,25 @@ def build_optim_and_sched(
     model: nn.Module,
     train_dl: DataLoader,
 ) -> tuple[torch.optim.Optimizer, lrs.LRScheduler]:
-    # Separate params: no WD on BN/bias
-    decay, no_decay = [], []
-    for m in model.modules():
-        if isinstance(
-            m,
-            (
-                nn.BatchNorm1d,
-                nn.BatchNorm2d,
-                nn.LayerNorm,
-                nn.GroupNorm,
-            ),
-        ):
-            for p in m.parameters(recurse=False):
-                if p.requires_grad:
-                    no_decay.append(p)
-        else:
-            for name, p in m.named_parameters(recurse=False):
-                if not p.requires_grad:
-                    continue
-                if name.endswith("bias"):
-                    no_decay.append(p)
-                else:
-                    decay.append(p)
+    param_dict = {pn: p for pn, p in model.named_parameters()}
+    parameters_decay, parameters_no_decay = separate_parameters(model)
+
+    optim_groups = [
+        {
+            "params": [param_dict[pn] for pn in parameters_decay],
+            "weight_decay": 5e-4,
+        },
+        {"params": [param_dict[pn] for pn in parameters_no_decay], "weight_decay": 0.0},
+    ]
 
     max_lr = 0.1 * (config.train_bs / 256)  # = 0.05 for bs=128
 
-    optimizer = torch.optim.AdamW(
-        params=[p for p in model.parameters() if p.requires_grad],
-        lr=max_lr,
-        # momentum=0.9,
-        # nesterov=True,
-        weight_decay=5e-4,
+    print(parameters_no_decay)
+    optimizer = torch.optim.SGD(
+        optim_groups,
+        lr=1e-2,
+        momentum=0.9,
+        nesterov=True,
     )
 
     scheduler = lrs.OneCycleLR(
@@ -81,11 +96,11 @@ def build_optim_and_sched(
         max_lr=max_lr,
         epochs=config.max_epochs,
         steps_per_epoch=len(train_dl),
-        pct_start=0.1,
+        pct_start=0.2,
         anneal_strategy="cos",
-        div_factor=10,
-        final_div_factor=1000,
         three_phase=False,
+        div_factor=10,
+        final_div_factor=100,
     )
     return optimizer, scheduler
 
@@ -102,7 +117,7 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
         optimizer=optim,
         scheduler=sched,
         device=device,
-        # scaler=torch.GradScaler(device=device.type),  # slow on M1 air
+        scaler=torch.GradScaler(device=device.type),  # slow on M1 air
     )
     trainer = Engine(train_step, train_context)
 
