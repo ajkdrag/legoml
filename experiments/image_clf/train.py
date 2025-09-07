@@ -34,14 +34,14 @@ else:
     device = torch.device("cpu")
 logger.info("Using device: %s", device.type)
 set_seed(42)
-config = Config(train_augmentation=True, max_epochs=50, train_bs=128)
+config = Config(train_augmentation=True, max_epochs=30, train_bs=128)
 
 
 def build_optim_and_sched(
     config: Config,
     model: nn.Module,
     train_dl: DataLoader,
-) -> tuple[torch.optim.Optimizer, lrs._LRScheduler]:
+) -> tuple[torch.optim.Optimizer, lrs.LRScheduler]:
     # Separate params: no WD on BN/bias
     decay, no_decay = [], []
     for m in model.modules():
@@ -66,13 +66,13 @@ def build_optim_and_sched(
                 else:
                     decay.append(p)
 
-    max_lr = 0.01 * (config.train_bs / 256)  # = 0.05 for bs=128
+    max_lr = 0.1 * (config.train_bs / 256)  # = 0.05 for bs=128
 
-    optimizer = torch.optim.SGD(
-        params=model.parameters(),
+    optimizer = torch.optim.AdamW(
+        params=[p for p in model.parameters() if p.requires_grad],
         lr=max_lr,
-        momentum=0.9,
-        nesterov=True,
+        # momentum=0.9,
+        # nesterov=True,
         weight_decay=5e-4,
     )
 
@@ -81,7 +81,7 @@ def build_optim_and_sched(
         max_lr=max_lr,
         epochs=config.max_epochs,
         steps_per_epoch=len(train_dl),
-        pct_start=0.2,
+        pct_start=0.1,
         anneal_strategy="cos",
         div_factor=10,
         final_div_factor=1000,

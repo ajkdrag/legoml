@@ -110,7 +110,8 @@ class ConvNeXt_SE_32x32(nn.Sequential):
             ),  # [128, 8, 8]
         )
         self.head = nn.Sequential(
-            GlobalAvgPool2d(),  # [96]
+            GlobalAvgPool2d(),  # [128]
+            nn.LayerNorm(128),
             FCNormAct(c_in=128, c_out=10, act=nn.Identity),
         )
 
