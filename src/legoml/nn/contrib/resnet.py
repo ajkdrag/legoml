@@ -3,14 +3,15 @@ from functools import partial
 import torch
 import torch.nn as nn
 
+from legoml.nn.blocks.bottleneck import Bottleneck
+from legoml.nn.blocks.shortcut import PoolShortcut
 from legoml.nn.conv import (
     Conv1x1NormAct,
     Conv3x3NormAct,
     DWConvNormAct,
     NormActConv3x3,
 )
-from legoml.nn.shortcut import PoolShortcut
-from legoml.nn.struct import Bottleneck, ScaledResidual
+from legoml.nn.struct import ResidualAdd
 from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import autopad, identity
 
@@ -100,8 +101,8 @@ class ResNetBasic(nn.Sequential):
             act=nn.Identity,
         ),
         shortcut: ModuleCtor = partial(ResNetShortcut, block=Conv1x1NormAct),
+        residual: ModuleCtor = ResidualAdd,
         act: ModuleCtor = partial(nn.ReLU, inplace=True),
-        drop_path: float = 0.0,
     ):
         super().__init__()
         c_out = c_out or c_in
@@ -110,10 +111,9 @@ class ResNetBasic(nn.Sequential):
         block2 = block2(c_in=c_out, c_out=c_out, s=1)
         shortcut = shortcut(c_in=c_in, c_out=c_out, s=s)
 
-        self.block = ScaledResidual(
-            fn=nn.Sequential(block1, block2),
+        self.block = residual(
+            block=nn.Sequential(block1, block2),
             shortcut=shortcut,
-            drop_prob=drop_path,
         )
         self.act = act()
 
@@ -161,8 +161,8 @@ class ResNetPreAct(nn.Sequential):
             ResNetShortcut,
             block=partial(Conv1x1NormAct, norm=nn.Identity, act=nn.Identity),
         ),
+        residual: ModuleCtor = ResidualAdd,
         act: ModuleCtor = nn.Identity,
-        drop_path: float = 0.0,
     ):
         super().__init__()
         c_out = c_out or c_in
@@ -171,10 +171,9 @@ class ResNetPreAct(nn.Sequential):
         block2 = block2(c_in=c_out, c_out=c_out, s=1)
         shortcut = shortcut(c_in=c_in, c_out=c_out, s=s)
 
-        self.block = ScaledResidual(
-            fn=nn.Sequential(block1, block2),
+        self.block = residual(
+            block=nn.Sequential(block1, block2),
             shortcut=shortcut,
-            drop_prob=drop_path,
         )
         self.act = act()
 

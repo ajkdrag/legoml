@@ -1,7 +1,6 @@
 import math
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from legoml.utils.log import get_logger
 from typing import (
     Any,
     Dict,
@@ -16,6 +15,8 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.utils.hooks import RemovableHandle
+
+from legoml.utils.log import get_logger
 
 log = get_logger(__name__)
 

@@ -17,16 +17,6 @@ def forward_and_compute_loss(model, loss_fn, inputs, targets, device, use_amp=Fa
     return outputs, loss
 
 
-def apply_decoupled_wd(optimizer):
-    for group in optimizer.param_groups:
-        wd = group.get("weight_decay", 0.0)
-        if wd != 0.0:
-            for p in group["params"]:
-                if p.grad is None:
-                    continue
-                p.data.add_(p.data, alpha=-wd * group["lr"])
-
-
 def backward_and_step(loss, optimizer, scheduler=None, scaler=None):
     """Backward pass and optimizer step with optional AMP."""
     if scaler is not None:

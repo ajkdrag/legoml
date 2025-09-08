@@ -7,7 +7,7 @@ from legoml.nn.conv import (
     Conv3x3NormAct,
     DWSepConvNormAct,
 )
-from legoml.nn.struct import ScaledResidual
+from legoml.nn.struct import ResidualAdd
 from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import identity, make_divisible
 
@@ -26,8 +26,8 @@ class MBConv(nn.Sequential):
         block1: ModuleCtor = partial(Conv1x1NormAct, act=relu6),
         block2: ModuleCtor = partial(DWSepConvNormAct, dw_act=relu6),
         shortcut: ModuleCtor = nn.Identity,
+        residual: ModuleCtor = ResidualAdd,
         act: ModuleCtor = relu6,
-        drop_path: float = 0.0,
     ):
         super().__init__()
         c_out = c_out or c_in
@@ -49,10 +49,9 @@ class MBConv(nn.Sequential):
         block = nn.Sequential(block1, block2)
 
         if apply_residual:
-            block = ScaledResidual(
-                fn=block,
+            block = residual(
+                block=block,
                 shortcut=shortcut(c_in=c_in, c_out=c_out, s=s),
-                drop_prob=drop_path,
             )
 
         self.block = block
@@ -71,8 +70,8 @@ class FusedMBConv(nn.Sequential):
         block1: ModuleCtor = partial(Conv3x3NormAct, act=relu6),
         block2: ModuleCtor = partial(Conv1x1NormAct, act=nn.Identity),
         shortcut: ModuleCtor = nn.Identity,
+        residual: ModuleCtor = ResidualAdd,
         act: ModuleCtor = relu6,
-        drop_path: float = 0.0,
     ):
         super().__init__()
         c_out = c_out or c_in
@@ -85,10 +84,9 @@ class FusedMBConv(nn.Sequential):
         block = nn.Sequential(block1, block2)
 
         if apply_residual:
-            block = ScaledResidual(
-                fn=block,
+            block = residual(
+                block=block,
                 shortcut=shortcut(c_in=c_in, c_out=c_out, s=s),
-                drop_prob=drop_path,
             )
 
         self.block = block

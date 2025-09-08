@@ -3,9 +3,10 @@ from functools import partial
 import torch.nn as nn
 
 from legoml.nn.activation import LayerNorm2d
-from legoml.nn.blocks.resnet import ResNetShortcut
+from legoml.nn.contrib.resnet import ResNetShortcut
 from legoml.nn.conv import Conv1x1, Conv1x1NormAct, DWConv, NormActConv
-from legoml.nn.struct import ScaledResidual
+from legoml.nn.ops import LayerScale
+from legoml.nn.struct import ResidualAdd
 from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import make_divisible
 
@@ -48,8 +49,9 @@ class ConvNeXtBlock(nn.Sequential):
         block2: ModuleCtor = partial(Conv1x1NormAct, norm=None, act=nn.GELU),
         block3: ModuleCtor = Conv1x1,
         shortcut: ModuleCtor = ResNetShortcut,
+        residual: ModuleCtor = ResidualAdd,
+        scaler: ModuleCtor | None = partial(LayerScale, init_value=0.8),
         act: ModuleCtor = nn.Identity,
-        drop_path: float = 0.0,
     ):
         super().__init__()
         c_out = c_out or c_in
@@ -58,13 +60,11 @@ class ConvNeXtBlock(nn.Sequential):
         block1 = block1(c_in=c_in, c_out=c_in, s=s)
         block2 = block2(c_in=c_in, c_out=c_mid, s=1)
         block3 = block3(c_in=c_mid, c_out=c_out, s=1)
+        scaler = LayerScale(dims=c_out)
         shortcut = shortcut(c_in=c_in, c_out=c_out, s=s)
 
-        self.block = ScaledResidual(
-            fn=nn.Sequential(block1, block2, block3),
+        self.block = residual(
+            fn=nn.Sequential(block1, block2, block3, scaler),
             shortcut=shortcut,
-            drop_prob=drop_path,
-            layer_scale_init=0.4,  # for very shallow networks
-            layer_scale_dimensions=c_out,
         )
         self.act = act()

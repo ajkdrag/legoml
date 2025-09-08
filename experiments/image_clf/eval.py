@@ -29,10 +29,10 @@ set_seed(42)
 config = Config(max_epochs=1)
 
 
-model = ConvNeXt_SE_32x32()
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
+model = ConvNeXt_SE_32x32()
 summary = summarize_model(model, next(iter(eval_dl)).inputs, depth=2)
-
+model.to(device)
 
 with run(base_dir=Path("runs").joinpath("eval_img_clf_cifar10")) as sess:
     eval_context = Context(
@@ -53,7 +53,6 @@ with run(base_dir=Path("runs").joinpath("eval_img_clf_cifar10")) as sess:
 
     evaluator.load_checkpoint(checkpoint_path=checkpoint_path)
     evaluator.state.reset()
-    model.to(device)
     evaluator.loop(train_dl, max_epochs=config.max_epochs)
     sess.log_params({"exp_config": asdict(config)})
     sess.log_text("model", f"{summary}\n\n{model}")

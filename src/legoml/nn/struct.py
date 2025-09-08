@@ -1,12 +1,12 @@
 from functools import partial
+from typing import Callable
 
 import torch
 import torch.nn as nn
+from torch import Tensor
 
-from legoml.nn.ops import LayerScale
-from legoml.nn.regularization import DropPath
 from legoml.nn.types import ModuleCtor
-from legoml.nn.utils import identity, make_divisible
+from legoml.nn.utils import identity
 
 
 class ApplyAfterCtor:
@@ -25,40 +25,6 @@ class ApplyAfterCtor:
         after_block = self.after()
 
         return nn.Sequential(main_block, after_block)
-
-
-class Bottleneck(nn.Sequential):
-    def __init__(
-        self,
-        *,
-        c_in: int,
-        c_mid: int | None = None,
-        c_out: int | None = None,
-        s: int = 1,
-        f_reduce: int = 4,
-        block1: ModuleCtor,
-        block2: ModuleCtor,
-        block3: ModuleCtor,
-        shortcut: ModuleCtor,
-        act: ModuleCtor = partial(nn.ReLU, inplace=True),
-        drop_path: float = 0.0,
-    ):
-        super().__init__()
-
-        c_out = c_out or c_in
-        c_mid = c_mid or make_divisible(c_out / f_reduce)
-
-        block1 = block1(c_in=c_in, c_out=c_mid, s=1)
-        block2 = block2(c_in=c_mid, c_out=c_mid, s=s)  # ResNet-D style stride
-        block3 = block3(c_in=c_mid, c_out=c_out, s=1)
-        shortcut = shortcut(c_in=c_in, c_out=c_out, s=s)
-
-        self.block = ScaledResidual(
-            fn=nn.Sequential(block1, block2, block3),
-            shortcut=shortcut,
-            drop_prob=drop_path,
-        )
-        self.act = act()
 
 
 class BranchAndConcat(nn.Module):
@@ -81,49 +47,43 @@ class BranchAndConcat(nn.Module):
         return torch.cat([branch(x) for branch in self.branches], dim=1)
 
 
-class ScaledResidual(nn.Module):
-    """Residual connection with stochastic depth.
-
-    Implements residual connection with optional DropPath for
-    stochastic depth regularization during training.
-
-    Parameters
-    ----------
-    fn : nn.Module
-        Main branch function/block
-    shortcut : nn.Module, optional
-        Shortcut connection. Defaults to identity
-    drop_prob : float, default=0.0
-        Drop path probability for stochastic depth
+class InputForward(nn.Module):
+    """
+    Passes the input to multiple modules and applies an aggregation on the result.
     """
 
+    def __init__(self, blocks: nn.Sequential, agg: ModuleCtor):
+        super().__init__()
+        self.layers = blocks
+        self.agg = agg
+
+    def forward(self, x):
+        out = None
+        for block in self.layers:
+            block_out = block(x)
+            out = block_out if out is None else self.agg([block_out, out])
+        return out
+
+
+class Residual(nn.Module):
     def __init__(
         self,
         *,
-        fn: nn.Module,
-        shortcut: nn.Module | None = None,
-        drop_prob: float = 0.0,
-        layer_scale_init: float = 0.0,
-        layer_scale_dimensions: int | None = None,
+        block: nn.Module,
+        res_func: Callable[[Tensor, Tensor], Tensor] | None = None,
+        shortcut: nn.Module = identity,
     ):
         super().__init__()
-        layers = [fn]
-        if layer_scale_init > 0.0:
-            if layer_scale_dimensions is None:
-                raise ValueError(
-                    "layer_scale_dimensions must be specified if layer_scale_init > 0.0"
-                )
-            layers.append(
-                LayerScale(
-                    init_value=layer_scale_init,
-                    dims=layer_scale_dimensions,
-                )
-            )
-        if drop_prob > 0.0:
-            layers.append(DropPath(drop_prob))
-
-        self.block = nn.Sequential(*layers)
-        self.shortcut = shortcut or identity
+        self.block = block
+        self.shortcut = shortcut
+        self.res_func = res_func
 
     def forward(self, x):
-        return self.shortcut(x) + self.block(x)
+        res = self.shortcut(x)
+        x = self.block(x)
+        if self.res_func is not None:
+            x = self.res_func(x, res)
+        return x
+
+
+ResidualAdd = partial(Residual, res_func=lambda x, res: x.add_(res))
