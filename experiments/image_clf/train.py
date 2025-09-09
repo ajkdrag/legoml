@@ -9,9 +9,10 @@ from torch.utils.data.dataloader import DataLoader
 from experiments.data_utils import create_dataloaders
 from experiments.image_clf.config import Config
 from experiments.image_clf.models import (
-    ConvNeXt_tiny_32x32,
     ConvNeXt_SE_32x32,
-    MobileNet_tiny_32x32,
+    ConvNeXt_tiny_32x32,
+    ResNetPreActWide_tiny_32x32,
+    # MobileNet_tiny_32x32,
     ResNetWide_tiny_32x32,
 )
 from experiments.image_clf.steps import eval_step, train_step
@@ -44,7 +45,7 @@ def build_optim_and_sched(
     model: nn.Module,
     train_dl: DataLoader,
 ) -> tuple[torch.optim.Optimizer, lrs.LRScheduler]:
-    base_max_lr = 0.1 * (config.train_bs / 256)
+    base_max_lr = 0.1 * (config.train_bs / 128)
     groups = default_groups(model, lr=base_max_lr, weight_decay=5e-4)
     max_lrs = [g["lr"] for g in groups]
     print_param_groups(model, groups)
@@ -67,7 +68,7 @@ def build_optim_and_sched(
 
 
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = MobileNet_tiny_32x32()
+model = ResNetPreActWide_tiny_32x32()
 summary = summarize_model(model, next(iter(train_dl)).inputs, depth=2)
 
 model.to(device)

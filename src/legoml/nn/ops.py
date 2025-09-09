@@ -22,26 +22,17 @@ class ChannelShuffle(nn.Sequential):
 
 
 class LayerScale(nn.Module):
-    """
-    Dimension-agnostic LayerScale.
-    - If input is (N, C, H, W): gamma -> (1, C, 1, 1)
-    - If input is (N, D):       gamma -> (1, D)
-    - If input is (N, L, D):    gamma -> (1, 1, D)
-    """
-
     def __init__(self, *, dims: int, init_value: float = 1e-5):
         super().__init__()
-        self.gamma = nn.Parameter(init_value * torch.ones(dims), requires_grad=True)
+        self.gamma = nn.Parameter(torch.full((1, dims, 1, 1), init_value))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if x.dim() == 4:  # (N, C, H, W) -> CNNs
-            shape = (1, -1, 1, 1)
-        elif x.dim() == 3:  # (N, L, D) -> Transformers
-            shape = (1, 1, -1)
-        elif x.dim() == 2:  # (N, D) -> MLPs
-            shape = (1, -1)
-        else:
-            raise ValueError(f"Unsupported input rank {x.dim()} for LayerScaler")
+        return x * self.gamma
 
-        gamma = self.gamma.view(*shape)
-        return x * gamma
+
+class SpaceToDepth(nn.Sequential):
+    def __init__(self, f_reduce: int):
+        super().__init__()
+        self.block = Rearrange(
+            "b c (ho r1) (wo r2) -> b (c r1 r2) ho wo", r1=f_reduce, r2=f_reduce
+        )

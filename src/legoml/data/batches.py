@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+
 import torch
+
 from legoml.core.constants import Device
 
 

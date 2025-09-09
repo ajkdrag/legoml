@@ -6,11 +6,13 @@ import torch.nn as nn
 from legoml.nn.blocks.bottleneck import Bottleneck
 from legoml.nn.blocks.shortcut import PoolShortcut
 from legoml.nn.conv import (
+    Conv1x1,
     Conv1x1NormAct,
     Conv3x3NormAct,
     DWConvNormAct,
     NormActConv3x3,
 )
+from legoml.nn.ops import ChannelShuffle
 from legoml.nn.struct import ResidualAdd
 from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import autopad, identity
@@ -160,7 +162,7 @@ class ResNetPreAct(nn.Sequential):
         block2: ModuleCtor = NormActConv3x3,
         shortcut: ModuleCtor = partial(
             ResNetShortcut,
-            block=partial(Conv1x1NormAct, norm=nn.Identity, act=nn.Identity),
+            block=Conv1x1,
         ),
         residual: ModuleCtor = ResidualAdd,
         act: ModuleCtor | None = None,
@@ -247,6 +249,8 @@ ResNetBottleneck = partial(
     shortcut=ResNetShortcut,
 )
 
+ResNetBottleneck_D = partial(ResNetBottleneck, shortcut=ResNetDShortcut)
+
 Res2NetBottleneck = partial(
     Bottleneck,
     block1=Conv1x1NormAct,
@@ -255,6 +259,8 @@ Res2NetBottleneck = partial(
     shortcut=ResNetShortcut,
 )
 
+Res2NetBottleneck_D = partial(Res2NetBottleneck, shortcut=ResNetDShortcut)
+
 ResNeXtBottleneck = partial(
     Bottleneck,
     block1=Conv1x1NormAct,
@@ -262,3 +268,19 @@ ResNeXtBottleneck = partial(
     block3=partial(Conv1x1NormAct, act=nn.Identity),
     shortcut=ResNetShortcut,
 )
+
+
+ResNeXtBottleneck_DSh = partial(
+    ResNeXtBottleneck,
+    block2=lambda c_in, **kwargs: nn.Sequential(
+        DWConvNormAct(c_in=c_in, **kwargs),
+        ChannelShuffle(g=c_in),
+    ),
+    shortcut=ResNetDShortcut,
+)
+"""
+A ResNeXt bottleneck block with specific modifications.
+
+This block is configured with a ResNet-D style downsampling shortcut and
+incorporates channel shuffling from the ShuffleNet architecture.
+"""

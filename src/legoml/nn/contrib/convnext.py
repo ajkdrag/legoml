@@ -2,9 +2,9 @@ from functools import partial
 
 import torch.nn as nn
 
-from legoml.nn.activation import LayerNorm2d
 from legoml.nn.contrib.resnet import ResNetShortcut
 from legoml.nn.conv import Conv1x1, Conv1x1NormAct, DWConv, NormActConv
+from legoml.nn.norm import GRN, LayerNorm2d
 from legoml.nn.ops import LayerScale
 from legoml.nn.struct import ResidualAdd
 from legoml.nn.types import ModuleCtor
@@ -49,7 +49,7 @@ class ConvNeXtBlock(nn.Sequential):
         block2: ModuleCtor = partial(Conv1x1NormAct, norm=None, act=nn.GELU),
         block3: ModuleCtor = Conv1x1,
         shortcut: ModuleCtor = ResNetShortcut,
-        scaler: ModuleCtor | None = partial(LayerScale, init_value=0.8),
+        scaler: ModuleCtor | None = partial(LayerScale, init_value=0.1),
         residual: ModuleCtor = ResidualAdd,
         act: ModuleCtor | None = None,
     ):
@@ -69,3 +69,13 @@ class ConvNeXtBlock(nn.Sequential):
         )
         if act:
             self.act = act()
+
+
+ConvNextV2Block = partial(
+    ConvNeXtBlock,
+    block3=lambda *, c_in, c_out, s: nn.Sequential(
+        GRN(c_in),
+        Conv1x1(c_in=c_in, c_out=c_out, s=s),
+    ),
+    scaler=None,
+)

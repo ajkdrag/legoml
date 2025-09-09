@@ -13,6 +13,8 @@ from typing import (
 
 import torch.nn as nn
 
+from legoml.nn.norm import GRN
+
 NORM_CLASSES: Tuple[type, ...] = (
     nn.BatchNorm1d,
     nn.BatchNorm2d,
@@ -24,6 +26,7 @@ NORM_CLASSES: Tuple[type, ...] = (
     nn.InstanceNorm2d,
     nn.InstanceNorm3d,
     nn.LocalResponseNorm,
+    GRN,
 )
 
 Predicate = Callable[[str, nn.Parameter, nn.Module], bool]
