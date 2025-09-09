@@ -68,7 +68,7 @@ def build_optim_and_sched(
 
 
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = ResNetPreActWide_tiny_32x32()
+model = ConvNeXt_tiny_32x32()
 summary = summarize_model(model, next(iter(train_dl)).inputs, depth=2)
 
 model.to(device)

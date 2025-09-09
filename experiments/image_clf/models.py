@@ -53,16 +53,17 @@ class ConvNeXt_tiny_32x32(nn.Sequential):
         self.stem = nn.Sequential(
             Conv3x3NormAct(c_in=c_in, c_out=32),  # [32, 32, 32]
         )
-        blk = ConvNextV2Block
+        blk = partial(ConvNeXtBlock, scaler=None)
         self.backbone = nn.Sequential(
             blk(c_in=32, c_out=32),  # [32, 32, 32]
             blk(c_in=32, c_out=32),  # [32, 32, 32]
-            ConvNeXtDownsample_S2D(c_in=32, c_out=64, s=2),  # [64, 16, 16]
+            ConvNeXtDownsample(c_in=32, c_out=64, s=2),  # [64, 16, 16]
             blk(c_in=64, c_out=64),  # [64, 16, 16]
             blk(c_in=64, c_out=64),  # [64, 16, 16]
             blk(c_in=64, c_out=64),  # [64, 16, 16]
             blk(c_in=64, c_out=64),  # [64, 16, 16]
-            ConvNeXtDownsample_S2D(c_in=64, c_out=128, s=2),  # [128, 8, 8]
+            ConvNeXtDownsample(c_in=64, c_out=128, s=2),  # [128, 8, 8]
+            blk(c_in=128, c_out=128),  # [128, 8, 8]
             blk(c_in=128, c_out=128),  # [128, 8, 8]
         )
         self.head = nn.Sequential(
@@ -267,5 +268,6 @@ class MobileNet_tiny_32x32(nn.Sequential):
 
 if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
-    model = ResNetPreActWide_tiny_32x32()
+    model = ConvNeXt_tiny_32x32()
     summarize_model(model, dummy_ip, depth=2)
+    print(model)
