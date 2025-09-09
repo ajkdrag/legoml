@@ -42,14 +42,14 @@ def get_train_tfms_v2(cfg: CIFAR10Config) -> TransformsSeqType:
             min_width=32 + 2 * 4,
             fill=(0, 0, 0),  # zero-padding to match standard practice
         ),
-        A.RandomCrop(height=32, width=32),
+        A.RandomCrop(height=32, width=32, p=0.8),
         A.HorizontalFlip(p=0.5),
         A.ColorJitter(0.2, 0.3, 0.2, 0.02, p=0.6),
         A.Affine(0.2, 0.1, rotate=10, fill=127, p=0.2),
         A.CoarseDropout(
             num_holes_range=(1, 1),
-            hole_height_range=(12, 12),
-            hole_width_range=(12, 12),
+            hole_height_range=(8, 12),
+            hole_width_range=(8, 12),
             fill=0,  # zero out
             p=0.2,
         ),
