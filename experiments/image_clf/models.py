@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 
 from legoml.nn.attention import SEAttention
-from legoml.nn.blocks.convnext import ConvNeXtBlock, ConvNeXtDownsample
-from legoml.nn.blocks.mobilenet import FusedMBConv, MBConv
-from legoml.nn.blocks.resnet import (
+from legoml.nn.contrib.convnext import ConvNeXtBlock, ConvNeXtDownsample
+from legoml.nn.contrib.mobilenet import FusedMBConv, MBConv
+from legoml.nn.contrib.resnet import (
     Res2NetBlock,
     Res2NetBottleneck,
     ResNetBasic,
@@ -35,7 +35,7 @@ class CNN__MLP_tiny_32x32(nn.Sequential):
         )
         self.head = nn.Sequential(
             GlobalAvgPool2d(),  # [64]
-            FCNormAct(c_in=64, c_out=10, act=nn.Identity),
+            FCNormAct(c_in=64, c_out=10, norm=None, act=None),
         )
 
 
@@ -183,7 +183,7 @@ class ResNetPreAct_tiny_32x32(nn.Sequential):
             ResNetPreAct(c_in=16, c_out=16),  # [16, 32, 32]
             ResNetPreAct(c_in=16, c_out=16),  # [16, 32, 32]
             ResNetPreAct(c_in=16, c_out=16),  # [16, 32, 32]
-            ResNetPreAct(c_in=16, c_out=32, s=2, drop_path=0.2),  # [32, 16, 16]
+            ResNetPreAct(c_in=16, c_out=32, s=2),  # [32, 16, 16]
             ResNetPreAct(c_in=32, c_out=32),  # [32, 16, 16]
             ResNetPreAct(c_in=32, c_out=32),  # [32, 16, 16]
             ResNetPreAct(c_in=32, c_out=64, s=2),  # [64, 8, 8]
@@ -204,7 +204,7 @@ class ResNetWide_tiny_32x32(nn.Sequential):
         )
         self.backbone = nn.Sequential(
             ResNetBasic(c_in=16, c_out=16),  # [16, 32, 32]
-            ResNetBasic(c_in=16, c_out=48, s=2, drop_path=0.1),  # [96, 16, 16]
+            ResNetBasic(c_in=16, c_out=48, s=2),  # [96, 16, 16]
             ResNetBasic(c_in=48, c_out=48),  # [96, 16, 16]
             ResNetBasic(c_in=48, c_out=96, s=2),  # [96, 8, 8]
             ResNetBasic(c_in=96, c_out=96),  # [96, 8, 8]
@@ -225,7 +225,7 @@ class ResNetBasic_tiny_32x32(nn.Sequential):
             ResNetBasic(c_in=16, c_out=16),  # [16, 32, 32]
             ResNetBasic(c_in=16, c_out=16),  # [16, 32, 32]
             ResNetBasic(c_in=16, c_out=16),  # [16, 32, 32]
-            ResNetBasic(c_in=16, c_out=32, s=2, drop_path=0.2),  # [32, 16, 16]
+            ResNetBasic(c_in=16, c_out=32, s=2),  # [32, 16, 16]
             ResNetBasic(c_in=32, c_out=32),  # [32, 16, 16]
             ResNetBasic(c_in=32, c_out=32),  # [32, 16, 16]
             ResNetBasic(c_in=32, c_out=64, s=2),  # [64, 8, 8]

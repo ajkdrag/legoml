@@ -102,7 +102,7 @@ class ResNetBasic(nn.Sequential):
         ),
         shortcut: ModuleCtor = partial(ResNetShortcut, block=Conv1x1NormAct),
         residual: ModuleCtor = ResidualAdd,
-        act: ModuleCtor = partial(nn.ReLU, inplace=True),
+        act: ModuleCtor | None = partial(nn.ReLU, inplace=True),
     ):
         super().__init__()
         c_out = c_out or c_in
@@ -115,7 +115,8 @@ class ResNetBasic(nn.Sequential):
             block=nn.Sequential(block1, block2),
             shortcut=shortcut,
         )
-        self.act = act()
+        if act:
+            self.act = act()
 
 
 class ResNetPreAct(nn.Sequential):
@@ -162,7 +163,7 @@ class ResNetPreAct(nn.Sequential):
             block=partial(Conv1x1NormAct, norm=nn.Identity, act=nn.Identity),
         ),
         residual: ModuleCtor = ResidualAdd,
-        act: ModuleCtor = nn.Identity,
+        act: ModuleCtor | None = None,
     ):
         super().__init__()
         c_out = c_out or c_in
@@ -175,7 +176,8 @@ class ResNetPreAct(nn.Sequential):
             block=nn.Sequential(block1, block2),
             shortcut=shortcut,
         )
-        self.act = act()
+        if act:
+            self.act = act()
 
 
 class Res2NetBlock(nn.Module):
