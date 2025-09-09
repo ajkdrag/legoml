@@ -5,7 +5,7 @@ import torch.nn as nn
 from legoml.nn.contrib.resnet import ResNetShortcut
 from legoml.nn.conv import Conv1x1, Conv1x1NormAct, DWConv, NormActConv
 from legoml.nn.norm import GRN, LayerNorm2d
-from legoml.nn.ops import LayerScale
+from legoml.nn.ops import LayerScale, SpaceToDepth
 from legoml.nn.struct import ResidualAdd
 from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import identity, make_divisible
@@ -78,4 +78,12 @@ ConvNextV2Block = partial(
         Conv1x1(c_in=c_in, c_out=c_out, s=s),
     ),
     scaler=None,
+)
+
+ConvNeXtDownsample_S2D = partial(
+    ConvNeXtDownsample,
+    block=lambda *, c_in, c_out, s: nn.Sequential(
+        SpaceToDepth(f_reduce=s),
+        NormActConv(c_in=c_in * (s**2), c_out=c_out, norm=LayerNorm2d, act=None),
+    ),
 )

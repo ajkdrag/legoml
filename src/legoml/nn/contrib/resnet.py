@@ -13,7 +13,7 @@ from legoml.nn.conv import (
     DWConvNormAct,
     NormActConv3x3,
 )
-from legoml.nn.ops import ChannelShuffle
+from legoml.nn.ops import ChannelShuffle, SpaceToDepth
 from legoml.nn.struct import ApplyAfterCtor, ResidualAdd
 from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import autopad, identity
@@ -59,6 +59,26 @@ class ResNetDShortcut(nn.Sequential):
         else:
             self.pool = pool(kernel_size=k, stride=s, padding=autopad(k))
             self.block = block(c_in=c_in, c_out=c_out, s=1)
+
+
+class ResNetS2DShortcut(nn.Sequential):
+    def __init__(
+        self,
+        *,
+        c_in: int,
+        c_out: int | None = None,
+        k: int = 3,
+        s: int = 1,
+        s2d: ModuleCtor = SpaceToDepth,
+        block: ModuleCtor = partial(Conv1x1NormAct, act=nn.Identity),
+    ):
+        super().__init__()
+        c_out = c_out or c_in
+        if c_in == c_out and s == 1:
+            self.block = identity
+        else:
+            self.s2d = SpaceToDepth(f_reduce=s)
+            self.block = block(c_in=c_in * (s**2), c_out=c_out, s=1)
 
 
 class ResNetBasic(nn.Sequential):
@@ -253,6 +273,20 @@ ResNetPreAct_D_SE = partial(
         block=Conv1x1,
     ),
 )
+
+ResNetPreAct_S2D_SE = partial(
+    ResNetPreAct,
+    block1=lambda *, c_in, c_out, s, **kwargs: nn.Sequential(
+        SpaceToDepth(f_reduce=s) if s > 1 else identity,
+        NormActConv3x3(c_in=c_in * (s**2), c_out=c_out, s=1, **kwargs),
+        SEAttention(c_in=c_out),
+    ),
+    shortcut=partial(
+        ResNetS2DShortcut,
+        block=Conv1x1,
+    ),
+)
+
 
 ResNetBottleneck = partial(
     Bottleneck,

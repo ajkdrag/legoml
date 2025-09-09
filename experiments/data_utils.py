@@ -96,6 +96,7 @@ def create_cifar10_loaders(
         batch_size=config.train_bs,
         shuffle=True,
         collate_fn=collate_fn,
+        drop_last=True,
     )
     eval_loader = DataLoader(
         val_ds,

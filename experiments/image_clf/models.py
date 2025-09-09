@@ -7,6 +7,7 @@ from legoml.nn.attention import SEAttention
 from legoml.nn.contrib.convnext import (
     ConvNeXtBlock,
     ConvNeXtDownsample,
+    ConvNeXtDownsample_S2D,
     ConvNextV2Block,
 )
 from legoml.nn.contrib.mobilenet import FusedMBConv, MBConv
@@ -17,6 +18,7 @@ from legoml.nn.contrib.resnet import (
     ResNetDShortcut,
     ResNetPreAct,
     ResNetPreAct_D_SE,
+    ResNetPreAct_S2D_SE,
 )
 from legoml.nn.conv import Conv1x1, Conv1x1NormAct, Conv3x3NormAct
 from legoml.nn.mlp import FCNormAct
@@ -55,12 +57,12 @@ class ConvNeXt_tiny_32x32(nn.Sequential):
         self.backbone = nn.Sequential(
             blk(c_in=32, c_out=32),  # [32, 32, 32]
             blk(c_in=32, c_out=32),  # [32, 32, 32]
-            ConvNeXtDownsample(c_in=32, c_out=64, s=2),  # [64, 16, 16]
+            ConvNeXtDownsample_S2D(c_in=32, c_out=64, s=2),  # [64, 16, 16]
             blk(c_in=64, c_out=64),  # [64, 16, 16]
             blk(c_in=64, c_out=64),  # [64, 16, 16]
             blk(c_in=64, c_out=64),  # [64, 16, 16]
             blk(c_in=64, c_out=64),  # [64, 16, 16]
-            ConvNeXtDownsample(c_in=64, c_out=128, s=2),  # [128, 8, 8]
+            ConvNeXtDownsample_S2D(c_in=64, c_out=128, s=2),  # [128, 8, 8]
             blk(c_in=128, c_out=128),  # [128, 8, 8]
         )
         self.head = nn.Sequential(
@@ -226,7 +228,7 @@ class ResNetWide_tiny_32x32(nn.Sequential):
 class ResNetPreActWide_tiny_32x32(nn.Sequential):
     def __init__(self, c_in=3):
         super().__init__()
-        blk = ResNetPreAct_D_SE
+        blk = ResNetPreAct_S2D_SE
         self.stem = nn.Sequential(
             Conv3x3NormAct(c_in=c_in, c_out=32),  # [32, 32, 32]
         )
@@ -265,5 +267,5 @@ class MobileNet_tiny_32x32(nn.Sequential):
 
 if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
-    model = ResNetWide_tiny_32x32()
+    model = ResNetPreActWide_tiny_32x32()
     summarize_model(model, dummy_ip, depth=2)
