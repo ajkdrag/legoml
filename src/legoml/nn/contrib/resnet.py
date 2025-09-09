@@ -3,6 +3,7 @@ from functools import partial
 import torch
 import torch.nn as nn
 
+from legoml.nn.attention import SEAttention
 from legoml.nn.blocks.bottleneck import Bottleneck
 from legoml.nn.blocks.shortcut import PoolShortcut
 from legoml.nn.conv import (
@@ -13,7 +14,7 @@ from legoml.nn.conv import (
     NormActConv3x3,
 )
 from legoml.nn.ops import ChannelShuffle
-from legoml.nn.struct import ResidualAdd
+from legoml.nn.struct import ApplyAfterCtor, ResidualAdd
 from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import autopad, identity
 
@@ -241,6 +242,18 @@ class Res2NetBlock(nn.Module):
         return self.projection(torch.cat(outputs, dim=1))
 
 
+ResNetPreAct_D_SE = partial(
+    ResNetPreAct,
+    block2=lambda c_in, **kwargs: nn.Sequential(
+        NormActConv3x3(c_in=c_in, **kwargs),
+        SEAttention(c_in=c_in),
+    ),
+    shortcut=partial(
+        ResNetDShortcut,
+        block=Conv1x1,
+    ),
+)
+
 ResNetBottleneck = partial(
     Bottleneck,
     block1=Conv1x1NormAct,
@@ -270,7 +283,7 @@ ResNeXtBottleneck = partial(
 )
 
 
-ResNeXtBottleneck_DSh = partial(
+ResNeXtBottleneck_D_Sh = partial(
     ResNeXtBottleneck,
     block2=lambda c_in, **kwargs: nn.Sequential(
         DWConvNormAct(c_in=c_in, **kwargs),

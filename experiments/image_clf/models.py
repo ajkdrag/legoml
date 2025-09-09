@@ -16,6 +16,7 @@ from legoml.nn.contrib.resnet import (
     ResNetBasic,
     ResNetDShortcut,
     ResNetPreAct,
+    ResNetPreAct_D_SE,
 )
 from legoml.nn.conv import Conv1x1, Conv1x1NormAct, Conv3x3NormAct
 from legoml.nn.mlp import FCNormAct
@@ -225,10 +226,7 @@ class ResNetWide_tiny_32x32(nn.Sequential):
 class ResNetPreActWide_tiny_32x32(nn.Sequential):
     def __init__(self, c_in=3):
         super().__init__()
-        blk = partial(
-            ResNetPreAct,
-            shortcut=partial(ResNetDShortcut, block=Conv1x1),
-        )
+        blk = ResNetPreAct_D_SE
         self.stem = nn.Sequential(
             Conv3x3NormAct(c_in=c_in, c_out=32),  # [32, 32, 32]
         )
