@@ -1,4 +1,3 @@
-from bisect import bisect_right
 from dataclasses import asdict
 from pathlib import Path
 
@@ -10,11 +9,7 @@ from torch.utils.data.dataloader import DataLoader
 from experiments.data_utils import create_dataloaders
 from experiments.image_clf.config import Config
 from experiments.image_clf.models import (
-    ConvNeXt_SE_32x32,
     ConvNeXt_tiny_32x32,
-    ResNetPreActWide_tiny_32x32,
-    # MobileNet_tiny_32x32,
-    ResNetWide_tiny_32x32,
 )
 from experiments.image_clf.steps import eval_step, train_step
 from legoml.callbacks.checkpoint import CheckpointCallback
@@ -23,6 +18,7 @@ from legoml.callbacks.metric import MetricsCallback
 from legoml.core.context import Context
 from legoml.core.engine import Engine
 from legoml.metrics.multiclass import MultiClassAccuracy
+from legoml.schedulers.reducelr_with_warmup import WarmupReduceLROnPlateau
 from legoml.utils.log import get_logger
 from legoml.utils.optim import default_groups, print_param_groups
 from legoml.utils.seed import set_seed
@@ -48,7 +44,8 @@ def build_optim_and_sched(
 ) -> tuple[torch.optim.Optimizer, lrs.LRScheduler]:
     base_max_lr = 0.1 * (config.train_bs / 128)
     groups = default_groups(model, lr=base_max_lr, weight_decay=5e-4)
-    max_lrs = [g["lr"] for g in groups]
+
+    base_lrs = [g["lr"] for g in groups]
     print_param_groups(model, groups)
 
     optimizer = torch.optim.SGD(
@@ -57,27 +54,22 @@ def build_optim_and_sched(
         nesterov=True,
     )
 
-    pct_phase_1 = 0.5
+    # scheduler = lrs.OneCycleLR(
+    #     optimizer,
+    #     max_lr=max_lrs,
+    #     epochs=int(pct_phase_1 * config.max_epochs),
+    #     steps_per_epoch=len(train_dl),
+    #     pct_start=0.1,
+    #     anneal_strategy="cos",
+    # )
 
-    scheduler_1 = lrs.OneCycleLR(
+    scheduler = WarmupReduceLROnPlateau(
         optimizer,
-        max_lr=max_lrs,
-        epochs=int(pct_phase_1 * config.max_epochs),
-        steps_per_epoch=len(train_dl),
-        pct_start=0.1,
-        anneal_strategy="cos",
-    )
-
-    scheduler_2 = lrs.ReduceLROnPlateau(
-        optimizer,
-        factor=0.1,
-        patience=1,
-    )
-
-    scheduler = lrs.SequentialLR(
-        optimizer,
-        schedulers=[scheduler_1, scheduler_2],
-        milestones=[int(pct_phase_1 * config.max_epochs)],
+        max_epochs=config.max_epochs,
+        warmup_epochs=config.max_epochs // 10,
+        max_lr=0.1,
+        init_lr=0.0001,
+        scheduler=lrs.ReduceLROnPlateau(optimizer),
     )
 
     return optimizer, scheduler

@@ -33,7 +33,8 @@ def train_step(
         model, loss_fn, inputs, targets, device, use_amp
     )
 
-    backward_and_step(loss, optimizer, scheduler, context.scaler)
+    # scheduler step is handled explicity via engine event handles
+    backward_and_step(loss, optimizer, scaler=context.scaler)
     log_step(engine, "train", config.train_log_interval)
 
     return StepOutput(

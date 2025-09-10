@@ -30,6 +30,11 @@ class Engine:
                     **kwargs,
                 )
 
+    def add_event_handler(self, event: Events, handler: Callable[..., None]):
+        callback = Callback()
+        setattr(callback, EVENT_TO_METHOD[event], handler)
+        self.callbacks.append(callback)
+
     def loop(self, dataloader, max_epochs: int):
         self.state.max_epochs = max_epochs
         self.state.dataloader = dataloader
