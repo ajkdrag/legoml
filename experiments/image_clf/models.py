@@ -7,7 +7,6 @@ from legoml.nn.attention import SEAttention
 from legoml.nn.contrib.convnext import (
     ConvNeXtBlock,
     ConvNeXtDownsample,
-    ConvNeXtDownsample_S2D,
     ConvNextV2Block,
 )
 from legoml.nn.contrib.mobilenet import FusedMBConv, MBConv
@@ -17,11 +16,11 @@ from legoml.nn.contrib.resnet import (
     ResNetBasic,
     ResNetDShortcut,
     ResNetPreAct,
-    ResNetPreAct_D_SE,
     ResNetPreAct_S2D_SE,
 )
-from legoml.nn.conv import Conv1x1, Conv1x1NormAct, Conv3x3NormAct
+from legoml.nn.conv import Conv1x1, Conv3x3NormAct, NormActConv
 from legoml.nn.mlp import FCNormAct
+from legoml.nn.norm import GRN
 from legoml.nn.pool import GlobalAvgPool2d
 from legoml.nn.struct import ApplyAfterCtor
 from legoml.utils.summary import summarize_model
@@ -53,7 +52,15 @@ class ConvNeXt_tiny_32x32(nn.Sequential):
         self.stem = nn.Sequential(
             Conv3x3NormAct(c_in=c_in, c_out=32),  # [32, 32, 32]
         )
-        blk = partial(ConvNeXtBlock, scaler=None)
+        blk = partial(
+            ConvNextV2Block,
+            block3=partial(
+                NormActConv,
+                k=1,
+                norm=partial(GRN, gamma_init=0.5, beta_init=0.1),
+                act=None,
+            ),
+        )
         self.backbone = nn.Sequential(
             blk(c_in=32, c_out=32),  # [32, 32, 32]
             blk(c_in=32, c_out=32),  # [32, 32, 32]

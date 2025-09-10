@@ -73,12 +73,10 @@ class ConvNeXtBlock(nn.Sequential):
 
 ConvNextV2Block = partial(
     ConvNeXtBlock,
-    block3=lambda *, c_in, c_out, s: nn.Sequential(
-        GRN(c_in),
-        Conv1x1(c_in=c_in, c_out=c_out, s=s),
-    ),
+    block3=partial(NormActConv, k=1, norm=GRN, act=None),
     scaler=None,
 )
+
 
 ConvNeXtDownsample_S2D = partial(
     ConvNeXtDownsample,

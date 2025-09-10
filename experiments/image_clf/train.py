@@ -37,7 +37,7 @@ else:
     device = torch.device("cpu")
 logger.info("Using device: %s", device.type)
 set_seed(42)
-config = Config(train_augmentation=True, max_epochs=60, train_bs=128)
+config = Config(train_augmentation=True, max_epochs=30, train_bs=128)
 
 
 def build_optim_and_sched(
