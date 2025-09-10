@@ -1,3 +1,4 @@
+from bisect import bisect_right
 from dataclasses import asdict
 from pathlib import Path
 
@@ -56,14 +57,29 @@ def build_optim_and_sched(
         nesterov=True,
     )
 
-    scheduler = lrs.OneCycleLR(
+    pct_phase_1 = 0.5
+
+    scheduler_1 = lrs.OneCycleLR(
         optimizer,
         max_lr=max_lrs,
-        epochs=config.max_epochs,
+        epochs=int(pct_phase_1 * config.max_epochs),
         steps_per_epoch=len(train_dl),
         pct_start=0.1,
         anneal_strategy="cos",
     )
+
+    scheduler_2 = lrs.ReduceLROnPlateau(
+        optimizer,
+        factor=0.1,
+        patience=1,
+    )
+
+    scheduler = lrs.SequentialLR(
+        optimizer,
+        schedulers=[scheduler_1, scheduler_2],
+        milestones=[int(pct_phase_1 * config.max_epochs)],
+    )
+
     return optimizer, scheduler
 
 

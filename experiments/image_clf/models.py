@@ -20,7 +20,7 @@ from legoml.nn.contrib.resnet import (
 )
 from legoml.nn.conv import Conv1x1, Conv3x3NormAct, NormActConv
 from legoml.nn.mlp import FCNormAct
-from legoml.nn.norm import GRN
+from legoml.nn.norm import GRN, LayerNorm2d
 from legoml.nn.pool import GlobalAvgPool2d
 from legoml.nn.struct import ApplyAfterCtor
 from legoml.utils.summary import summarize_model
