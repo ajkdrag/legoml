@@ -57,7 +57,7 @@ class ConvNeXt_tiny_32x32(nn.Sequential):
             block3=partial(
                 NormActConv,
                 k=1,
-                norm=partial(GRN, gamma_init=0.5, beta_init=0.1),
+                norm=nn.BatchNorm2d,
                 act=None,
             ),
         )
