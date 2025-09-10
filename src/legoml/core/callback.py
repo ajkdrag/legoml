@@ -6,14 +6,14 @@ from legoml.core.state import EngineState
 
 def implements(*method_names):
     def decorator(cls):
-        cls._implemented_methods = set(method_names)
+        cls._implemented = set(method_names)
         return cls
 
     return decorator
 
 
 class Callback:
-    _implemented_methods: Set[str]
+    _implemented: Set[str]
 
     def state_dict(self) -> Dict[str, Any]:
         return {}

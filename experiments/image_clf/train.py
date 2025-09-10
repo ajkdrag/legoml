@@ -17,6 +17,7 @@ from legoml.callbacks.eval import EvalOnEpochEndCallback
 from legoml.callbacks.metric import MetricsCallback
 from legoml.core.context import Context
 from legoml.core.engine import Engine
+from legoml.core.event import Events
 from legoml.metrics.multiclass import MultiClassAccuracy
 from legoml.schedulers.reducelr_with_warmup import WarmupReduceLROnPlateau
 from legoml.utils.log import get_logger
@@ -69,7 +70,7 @@ def build_optim_and_sched(
         warmup_epochs=config.max_epochs // 10,
         max_lr=0.1,
         init_lr=0.0001,
-        scheduler=lrs.ReduceLROnPlateau(optimizer),
+        scheduler=lrs.ReduceLROnPlateau(optimizer, patience=4),
     )
 
     return optimizer, scheduler
@@ -92,7 +93,7 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
         device=device,
         scaler=torch.GradScaler(device=device.type),  # slow on M1 air
     )
-    trainer = Engine(train_step, train_context)
+    trainer = Engine(train_step, train_context) 
 
     eval_context = Context(
         config=config,
@@ -119,6 +120,12 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
                 best_fn=lambda: evaluator.state.metrics["eval_acc"],
             ),
         ]
+    )
+    trainer.add_event_handler(
+        Events.EPOCH_END,
+        lambda context, state: context.scheduler.step(
+            evaluator.state.metrics["eval_acc"]
+        ),
     )
 
     trainer.loop(train_dl, max_epochs=config.max_epochs)

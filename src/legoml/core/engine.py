@@ -23,16 +23,20 @@ class Engine:
     def fire(self, event: Events, **kwargs) -> None:
         method = EVENT_TO_METHOD[event]
         for cb in self.callbacks:
-            if method in cb._implemented_methods:
-                getattr(cb, method)(
+            fn = getattr(cb, method, None)
+            if callable(fn):
+                fn(
                     context=self.context,
                     state=self.state,
                     **kwargs,
                 )
 
-    def add_event_handler(self, event: Events, handler: Callable[..., None]):
-        callback = Callback()
-        setattr(callback, EVENT_TO_METHOD[event], handler)
+    def add_event_handler(self, event: Events, handler: Callable[..., None] | Callback):
+        if not isinstance(handler, Callback):
+            callback = Callback()
+            setattr(callback, EVENT_TO_METHOD[event], handler)
+        else:
+            callback = handler
         self.callbacks.append(callback)
 
     def loop(self, dataloader, max_epochs: int):

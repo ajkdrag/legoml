@@ -16,7 +16,7 @@ class WarmupReduceLROnPlateau(LRScheduler):
         init_lr: float,
         scheduler: ReduceLROnPlateau,
         annealing: Literal["lin", "cos"] = "cos",
-        last_epoch: int = -1,
+        last_epoch: int = 0,
     ) -> None:
         self.init_lr = init_lr
         self.max_lr = max_lr
@@ -47,6 +47,7 @@ class WarmupReduceLROnPlateau(LRScheduler):
         return (end - start) * pct + start
 
     def step(self, metrics) -> None:  # type: ignore[override]
+        print(f"Stepping at epoch {self.last_epoch}")
         current_epoch = self.last_epoch
         if current_epoch <= self.warmup_epochs:
             # Linear warmup phase
