@@ -1,5 +1,7 @@
 from typing import Any, Callable
 
+from torch.utils.data import DataLoader
+
 from legoml.core.callback import Callback
 from legoml.core.context import Context
 from legoml.core.event import EVENT_TO_METHOD, Events
@@ -13,11 +15,12 @@ class Engine:
         self,
         fn: Callable[["Engine", Any, Context], StepOutput],
         context: Context,
+        state: EngineState | None = None,
         callbacks: list[Callback] | None = None,
     ) -> None:
         self.fn = fn
         self.context = context
-        self.state = EngineState()
+        self.state = state or EngineState()
         self.callbacks = callbacks or []
 
     def fire(self, event: Events, **kwargs) -> None:
@@ -39,16 +42,19 @@ class Engine:
             callback = handler
         self.callbacks.append(callback)
 
-    def loop(self, dataloader, max_epochs: int):
-        self.state.max_epochs = max_epochs
-        self.state.dataloader = dataloader
+    def loop(self, dataloader: DataLoader | None = None, max_epochs: int | None = None):
+        self.state.max_epochs = max_epochs or self.state.max_epochs
+        self.state.dataloader = dataloader or self.state.dataloader
+        if self.state.dataloader is None:
+            raise ValueError("No dataloader passed or found in state")
+
         self.fire(Events.ENGINE_START)
 
-        for epoch in range(self.state.epoch, max_epochs + 1):
+        for epoch in range(self.state.epoch, self.state.max_epochs + 1):
             self.state.epoch = epoch
             self.fire(Events.EPOCH_START)
 
-            for idx, batch in enumerate(dataloader, start=1):
+            for idx, batch in enumerate(self.state.dataloader, start=1):
                 self.state.local_step = idx
                 self.fire(Events.STEP_START, batch=batch)
                 op = self.fn(self, batch, self.context)

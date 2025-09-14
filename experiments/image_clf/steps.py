@@ -19,7 +19,6 @@ def train_step(
     model = context.model
     loss_fn = context.loss_fn
     optimizer = context.optimizer
-    scheduler = context.scheduler
     device = context.device
     use_amp = context.scaler is not None
 

@@ -1,5 +1,7 @@
-from torch.utils.data import DataLoader
 from dataclasses import dataclass, field
+
+from torch.utils.data import DataLoader
+
 from legoml.core.step_output import StepOutput
 
 

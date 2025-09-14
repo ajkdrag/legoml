@@ -1,10 +1,10 @@
 from torch.utils.data import DataLoader
+
 from legoml.core.callback import Callback, implements
-from legoml.core.engine import Engine
 from legoml.core.context import Context
+from legoml.core.engine import Engine
 from legoml.core.state import EngineState
 from legoml.utils.log import get_logger
-
 
 logger = get_logger(__name__)
 

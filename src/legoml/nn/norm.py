@@ -17,7 +17,6 @@ class LayerNorm2d(nn.GroupNorm):
 
 
 class GRN(nn.Module):
-    __constants__ = ["gamma_init", "beta_init"]
     gamma_init: float
     beta_init: float
 
@@ -40,4 +39,3 @@ class GRN(nn.Module):
         gx = torch.norm(x, p=2, dim=(-1, -2), keepdim=True)  # [B, C, 1, 1]
         nx = gx / (gx.mean(dim=1, keepdim=True) + self.eps)  # [B, C, 1, 1]
         return x + self.gamma * (x * nx) + self.beta
-

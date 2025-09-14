@@ -37,7 +37,7 @@ class CheckpointCallback(Callback):
 
     def on_engine_start(self, context: Context, state: EngineState) -> None:
         self.dirpath.mkdir(parents=True, exist_ok=True)
-        self.best_value = -99999999
+        self.best_value = -float("inf")
         logger.info(
             "checkpointing",
             dir=str(self.dirpath),
@@ -54,7 +54,7 @@ class CheckpointCallback(Callback):
                 path = self.dirpath / f"{self.prefix}_best.pt"
                 self._save(context, state, path)
                 logger.info(
-                    f"Found better value: {curr_value} over previous: {self.best_value}. "
+                    f"Found better value: {curr_value} Previous: {self.best_value}. "
                     + "Saved checkpoint."
                 )
                 self.best_value = curr_value
