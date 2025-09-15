@@ -15,10 +15,8 @@ class Context:
     scheduler: torch.optim.lr_scheduler.LRScheduler | None = None
 
     def get_lr(self):
-        if self.scheduler:
-            return self.scheduler.get_last_lr()
         if self.optimizer:
-            return self.optimizer.param_groups[-1]["lr"]
+            return [grp["lr"] for grp in self.optimizer.param_groups]
 
     def to_dict(self):
         return {

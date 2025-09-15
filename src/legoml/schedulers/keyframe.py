@@ -1,5 +1,5 @@
-from dataclasses import dataclass, field
 import math
+from dataclasses import dataclass, field
 from typing import (
     Callable,
     List,
@@ -217,6 +217,8 @@ class KeyframeLR(LRScheduler):
     ) -> None:
         self.end = float(end)
         self.units = units
+        self.optimizer = optimizer
+        self.last_step = -1
 
         n_groups = len(optimizer.param_groups)
         frames_per_group = self._normalize_frames(frames, n_groups)
@@ -233,9 +235,8 @@ class KeyframeLR(LRScheduler):
             )
             for i in range(n_groups)
         ]
+        # In step 0, this will be overriden by first keyframe lrs
         self.last_lrs: List[float] = [0.0] * n_groups
-
-        super().__init__(optimizer=optimizer)
 
     def _normalize_frames(
         self, frames: FramesArg, n_groups: int
@@ -340,9 +341,9 @@ class KeyframeLR(LRScheduler):
 
     def get_lr(self) -> List[float]:
         if self.units == "steps":
-            position = float(self.last_epoch)
+            position = float(self.last_step)
         else:
-            position = (self.last_epoch / self.end) if self.end > 0.0 else 1.0
+            position = (self.last_step / self.end) if self.end > 0.0 else 1.0
 
         new_lrs: List[float] = []
         for i, sched in enumerate(self.schedules):
@@ -355,6 +356,12 @@ class KeyframeLR(LRScheduler):
             new_lrs.append(lr)
         self.last_lrs = new_lrs
         return new_lrs
+
+    def step(self, epoch=None):
+        self.last_step += 1
+        values = self.get_lr()
+        for param_group, lr in zip(self.optimizer.param_groups, values):
+            param_group["lr"] = lr
 
 
 # =========================

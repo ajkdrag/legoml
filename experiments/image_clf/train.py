@@ -39,15 +39,15 @@ set_seed(42)
 device = get_device()
 logger.info("Using device: %s", device.type)
 
-config = Config(train_augmentation=True, max_epochs=30, train_bs=128)
+config = Config(train_augmentation=True, max_epochs=60, train_bs=128)
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
 model = CNN__MLP_tiny_32x32()
 summary = summarize_model(model, next(iter(train_dl)).inputs, depth=2)
 
 # optim stuff
 model.to(device)
-base_max_lr = 0.1 * (config.train_bs / 128)
-param_groups = default_groups(model, lr=base_max_lr, weight_decay=5e-4)
+init_lr = 0.05
+param_groups = default_groups(model, lr=init_lr, weight_decay=5e-4)
 print_param_groups(model, param_groups)
 
 optimizer = torch.optim.SGD(
@@ -72,52 +72,59 @@ evaluator = Engine(
 )
 
 
+# scheduler stuff
+warmup_epochs = 2
+
+
 def sch_best_fn():
     return evaluator.state.metrics["eval_acc"]
 
 
-scheduler = KeyframeLR(
+warmup_scheduler = KeyframeLR(
     optimizer=optimizer,
     frames=[
-        Keyframe(0, 0.05),
+        Keyframe(0, init_lr),
         CosineDecay(),
-        Keyframe(3, 0.1),
+        Keyframe("end", 1.0),
+    ],
+    end=(warmup_epochs * len(train_dl)) - 1,
+    units="steps",
+)
+
+plateau_scheduler = KeyframeLR(
+    optimizer=optimizer,
+    frames=[
+        Keyframe(0, 1.0),
         ReduceLROnMetricPlateau(
             best_fn=sch_best_fn,
-            patience=3,
+            patience=1,
             factor=0.5,
-            min_lr=1e-2,
+            min_lr=1e-3,
             threshold=1e-4,
             threshold_mode="rel",
         ),
-        Keyframe("end", 1e-2),
+        Keyframe("end", 1e-3),
     ],
     end=config.max_epochs,
     units="steps",
 )
 
-# scheduler = KeyframeLR(
-#     optimizer=optimizer,
-#     frames=[
-#         Keyframe(0, 0.05),
-#         LinearDecay(),
-#         Keyframe(3, 1.0),
-#         CosineDecay(),
-#         Keyframe("end", 1e-4),
-#     ],
-#     end=config.max_epochs,
-#     units="steps",
-# )
 
-
-def run_eval(*, context: Context, state: EngineState, evaluator: Engine):
+def run_eval(*, context: Context, state: EngineState):
     evaluator.loop()
     logger.info("Evaluation complete", epoch=state.epoch)
 
 
-def scheduler_step(*, context: Context, state: EngineState, scheduler: LRScheduler):
-    scheduler.step()
-    logger.info("Stepped Scheduler", epoch=state.epoch)
+def warmup_step(*, context: Context, state: EngineState, **kwargs):
+    # since steps and epochs are 1-indexed so need to add 1
+    if state.global_step <= warmup_scheduler.end:
+        warmup_scheduler.step()
+
+
+def plateau_step(*, context: Context, state: EngineState):
+    if warmup_epochs <= state.epoch <= plateau_scheduler.end:
+        plateau_scheduler.step()
+        logger.info("Stepped plateau scheduler", epoch=state.epoch)
 
 
 with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
@@ -130,7 +137,6 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
             loss_fn=torch.nn.CrossEntropyLoss(label_smoothing=0.05),
             device=device,
             scaler=torch.GradScaler(device=device.type),  # slow on M1 air
-            scheduler=scheduler,
         ),
         state=EngineState(max_epochs=config.max_epochs, dataloader=train_dl),
         callbacks=[
@@ -140,11 +146,16 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
 
     trainer.add_event_handler(
         event=Events.EPOCH_END,
-        handler=partial(run_eval, evaluator=evaluator),
+        handler=run_eval,
+    )
+
+    trainer.add_event_handler(
+        Events.STEP_END,
+        handler=warmup_step,
     )
     trainer.add_event_handler(
         Events.EPOCH_END,
-        handler=partial(scheduler_step, scheduler=scheduler),
+        handler=plateau_step,
     )
 
     trainer.callbacks += [

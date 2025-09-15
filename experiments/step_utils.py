@@ -1,3 +1,4 @@
+from typing import Literal
 import torch
 
 from legoml.core.engine import Engine
@@ -31,7 +32,7 @@ def backward_and_step(loss, optimizer, scheduler=None, scaler=None):
         scheduler.step()
 
 
-def log_step(engine: Engine, mode: str, log_interval: int):
+def log_step(engine: Engine, mode, log_interval: int):
     """Log loss if at the right interval."""
     if engine.state.local_step % log_interval == 0:
         loss = engine.state.output.loss_scalar
