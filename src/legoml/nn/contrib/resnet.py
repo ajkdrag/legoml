@@ -14,7 +14,7 @@ from legoml.nn.conv import (
     NormActConv3x3,
 )
 from legoml.nn.ops import ChannelShuffle, SpaceToDepth
-from legoml.nn.struct import ApplyAfterCtor, ResidualAdd
+from legoml.nn.struct import ResidualAdd
 from legoml.nn.types import ModuleCtor
 from legoml.nn.utils import autopad, identity
 
@@ -56,8 +56,10 @@ class ResNetDShortcut(nn.Sequential):
         c_out = c_out or c_in
         if c_in == c_out and s == 1:
             self.block = identity
-        else:
+        elif s > 1:
             self.pool = pool(kernel_size=k, stride=s, padding=autopad(k))
+            self.block = block(c_in=c_in, c_out=c_out, s=1)
+        else:
             self.block = block(c_in=c_in, c_out=c_out, s=1)
 
 
@@ -81,7 +83,7 @@ class ResNetS2DShortcut(nn.Sequential):
             self.block = block(c_in=c_in * (s**2), c_out=c_out, s=1)
 
 
-class ResNetBasic(nn.Sequential):
+class ResNetBlock(nn.Sequential):
     """Basic ResNet block with dual 3×3 convolution path.
 
     Architecture
@@ -142,7 +144,7 @@ class ResNetBasic(nn.Sequential):
             self.act = act()
 
 
-class ResNetPreAct(nn.Sequential):
+class ResNetPreActBlock(nn.Sequential):
     """PreAct ResNet block with dual 3×3 convolution path.
 
     Architecture
@@ -262,8 +264,8 @@ class Res2NetBlock(nn.Module):
         return self.projection(torch.cat(outputs, dim=1))
 
 
-ResNetPreAct_D_SE = partial(
-    ResNetPreAct,
+ResNetPreActBlock_D_SE = partial(
+    ResNetPreActBlock,
     block2=lambda c_in, **kwargs: nn.Sequential(
         NormActConv3x3(c_in=c_in, **kwargs),
         SEAttention(c_in=c_in),
@@ -274,8 +276,8 @@ ResNetPreAct_D_SE = partial(
     ),
 )
 
-ResNetPreAct_S2D_SE = partial(
-    ResNetPreAct,
+ResNetPreActBlock_S2D_SE = partial(
+    ResNetPreActBlock,
     block1=lambda *, c_in, c_out, s, **kwargs: nn.Sequential(
         SpaceToDepth(f_reduce=s) if s > 1 else identity,
         NormActConv3x3(c_in=c_in * (s**2), c_out=c_out, s=1, **kwargs),

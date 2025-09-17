@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 
 from legoml.nn.attention import SEAttention
+from legoml.nn.contrib.convmixer import ConvMixerBlock, ConvMixerStem
 from legoml.nn.contrib.convnext import (
     ConvNeXtBlock,
     ConvNeXtDownsample,
@@ -13,10 +14,10 @@ from legoml.nn.contrib.mobilenet import FusedMBConv, MBConv
 from legoml.nn.contrib.resnet import (
     Res2NetBlock,
     Res2NetBottleneck,
-    ResNetBasic,
+    ResNetBlock,
     ResNetDShortcut,
-    ResNetPreAct,
-    ResNetPreAct_S2D_SE,
+    ResNetPreActBlock,
+    ResNetPreActBlock_S2D_SE,
 )
 from legoml.nn.conv import Conv1x1, Conv3x3NormAct, NormActConv
 from legoml.nn.mlp import FCNormAct
@@ -77,7 +78,7 @@ class ConvNeXt_tiny_32x32(nn.Sequential):
         self.head = nn.Sequential(
             GlobalAvgPool2d(),  # [128]
             nn.LayerNorm(128),
-            FCNormAct(c_in=128, c_out=10, norm=None, act=None),
+            nn.Linear(128, 10),
         )
 
 
@@ -191,22 +192,22 @@ class Res2NetWide_32x32(nn.Sequential):
         )
 
 
-class ResNetPreAct_tiny_32x32(nn.Sequential):
+class ResNetPreActBlock_tiny_32x32(nn.Sequential):
     def __init__(self, c_in=3):
         super().__init__()
         self.stem = nn.Sequential(
             Conv3x3NormAct(c_in=c_in, c_out=16),  # [16, 32, 32]
         )
         self.backbone = nn.Sequential(
-            ResNetPreAct(c_in=16, c_out=16),  # [16, 32, 32]
-            ResNetPreAct(c_in=16, c_out=16),  # [16, 32, 32]
-            ResNetPreAct(c_in=16, c_out=16),  # [16, 32, 32]
-            ResNetPreAct(c_in=16, c_out=32, s=2),  # [32, 16, 16]
-            ResNetPreAct(c_in=32, c_out=32),  # [32, 16, 16]
-            ResNetPreAct(c_in=32, c_out=32),  # [32, 16, 16]
-            ResNetPreAct(c_in=32, c_out=64, s=2),  # [64, 8, 8]
-            ResNetPreAct(c_in=64, c_out=64),  # [64, 8, 8]
-            ResNetPreAct(c_in=64, c_out=64),  # [64, 8, 8]
+            ResNetPreActBlock(c_in=16, c_out=16),  # [16, 32, 32]
+            ResNetPreActBlock(c_in=16, c_out=16),  # [16, 32, 32]
+            ResNetPreActBlock(c_in=16, c_out=16),  # [16, 32, 32]
+            ResNetPreActBlock(c_in=16, c_out=32, s=2),  # [32, 16, 16]
+            ResNetPreActBlock(c_in=32, c_out=32),  # [32, 16, 16]
+            ResNetPreActBlock(c_in=32, c_out=32),  # [32, 16, 16]
+            ResNetPreActBlock(c_in=32, c_out=64, s=2),  # [64, 8, 8]
+            ResNetPreActBlock(c_in=64, c_out=64),  # [64, 8, 8]
+            ResNetPreActBlock(c_in=64, c_out=64),  # [64, 8, 8]
         )
         self.head = nn.Sequential(
             GlobalAvgPool2d(),  # [64]
@@ -217,7 +218,7 @@ class ResNetPreAct_tiny_32x32(nn.Sequential):
 class ResNetWide_tiny_32x32(nn.Sequential):
     def __init__(self, c_in=3):
         super().__init__()
-        blk = partial(ResNetBasic, shortcut=ResNetDShortcut)
+        blk = partial(ResNetBlock, shortcut=ResNetDShortcut)
         self.stem = nn.Sequential(
             Conv3x3NormAct(c_in=c_in, c_out=64),  # [32, 32, 32]
         )
@@ -234,10 +235,10 @@ class ResNetWide_tiny_32x32(nn.Sequential):
         )
 
 
-class ResNetPreActWide_tiny_32x32(nn.Sequential):
+class ResNetPreActBlockWide_tiny_32x32(nn.Sequential):
     def __init__(self, c_in=3):
         super().__init__()
-        blk = ResNetPreAct_S2D_SE
+        blk = ResNetPreActBlock_S2D_SE
         self.stem = nn.Sequential(
             Conv3x3NormAct(c_in=c_in, c_out=32),  # [32, 32, 32]
         )
@@ -251,7 +252,7 @@ class ResNetPreActWide_tiny_32x32(nn.Sequential):
         self.head = nn.Sequential(
             nn.BatchNorm2d(128),
             GlobalAvgPool2d(),  # [128]
-            FCNormAct(c_in=128, c_out=10, act=None, norm=None),
+            nn.Linear(128, 10),
         )
 
 
@@ -270,7 +271,30 @@ class MobileNet_tiny_32x32(nn.Sequential):
         )
         self.head = nn.Sequential(
             GlobalAvgPool2d(),  # [96]
-            FCNormAct(c_in=256, c_out=10, norm=None, act=None),
+            nn.Linear(256, 10),
+        )
+
+
+class ConvMixer_w256_d8_p2_k5(nn.Sequential):
+    def __init__(self, c_in=3):
+        super().__init__()
+        self.stem = nn.Sequential(
+            ConvMixerStem(c_in=c_in, c_out=256, k=2, s=2),  # [256, 16, 16]
+        )
+        blk = partial(ConvMixerBlock, c_in=256, c_out=256, k=5)
+        self.backbone = nn.Sequential(
+            blk(),  # [256, 16, 16]
+            blk(),  # [256, 16, 16]
+            blk(),  # [256, 16, 16]
+            blk(),  # [256, 16, 16]
+            blk(),  # [256, 16, 16]
+            blk(),  # [256, 16, 16]
+            blk(),  # [256, 16, 16]
+            blk(),  # [256, 16, 16]
+        )
+        self.head = nn.Sequential(
+            GlobalAvgPool2d(),  # [256]
+            nn.Linear(256, 10),
         )
 
 
@@ -278,4 +302,3 @@ if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
     model = ConvNeXt_tiny_32x32()
     summarize_model(model, dummy_ip, depth=2)
-    print(model)

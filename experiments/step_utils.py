@@ -1,5 +1,6 @@
-from typing import Literal
 import torch
+import torch.nn as nn
+from torch.optim.optimizer import Optimizer
 
 from legoml.core.engine import Engine
 from legoml.utils.log import get_logger
@@ -18,18 +19,20 @@ def forward_and_compute_loss(model, loss_fn, inputs, targets, device, use_amp=Fa
     return outputs, loss
 
 
-def backward_and_step(loss, optimizer, scheduler=None, scaler=None):
+def backward_and_step(
+    loss, model: nn.Module, optimizer: Optimizer, scaler=None, clip_norm=True
+):
     """Backward pass and optimizer step with optional AMP."""
     if scaler is not None:
         scaler.scale(loss).backward()
+        if clip_norm:
+            scaler.unscale_(optimizer)
+            nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         scaler.step(optimizer)
         scaler.update()
     else:
         loss.backward()
         optimizer.step()
-
-    if scheduler:
-        scheduler.step()
 
 
 def log_step(engine: Engine, mode, log_interval: int):

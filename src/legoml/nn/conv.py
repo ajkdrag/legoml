@@ -73,6 +73,47 @@ class ConvNormAct(nn.Sequential):
             self.dropout = nn.Dropout(dropout)
 
 
+class ConvActNorm(nn.Sequential):
+    """Convolution layer with normalization and activation (Conv->Act->Norm)"""
+
+    def __init__(
+        self,
+        *,
+        c_in: int,
+        c_out: int | None = None,
+        k: int = 3,
+        s: int = 1,
+        p: int | None = None,
+        g: int = 1,
+        d: int = 1,
+        norm: ModuleCtor | None = nn.BatchNorm2d,
+        act: ModuleCtor | None = partial(nn.ReLU, inplace=True),
+        dropout=0.0,
+        **kwargs,
+    ):
+        super().__init__()
+        c_out = c_out or c_in
+        p = autopad(k, p, d)
+
+        self.block = nn.Conv2d(
+            c_in,
+            c_out,
+            kernel_size=k,
+            stride=s,
+            padding=p,
+            groups=g,
+            dilation=d,
+            bias=True,
+            **kwargs,
+        )
+        if act:
+            self.act = act()
+        if norm:
+            self.norm = norm(c_out)
+        if dropout > 0.0:
+            self.dropout = nn.Dropout(dropout)
+
+
 class NormActConv(nn.Sequential):
     """Convolution layer with normalization and activation (BN->Act->Conv)
 
@@ -197,6 +238,33 @@ class DWConvNormAct(ConvNormAct):
         )
 
 
+class DWConvActNorm(ConvActNorm):
+    def __init__(
+        self,
+        *,
+        c_in: int,
+        k: int = 3,
+        s: int = 1,
+        p: int | None = None,
+        d: int = 1,
+        norm: ModuleCtor | None = nn.BatchNorm2d,
+        act: ModuleCtor | None = partial(nn.ReLU, inplace=True),
+        dropout=0.0,
+    ):
+        super().__init__(
+            c_in=c_in,
+            c_out=c_in,
+            k=k,
+            s=s,
+            p=p,
+            g=c_in,
+            d=d,
+            norm=norm,
+            act=act,
+            dropout=dropout,
+        )
+
+
 class DWSepConvNormAct(nn.Sequential):
     """Complete depthwise separable convolution.
 
@@ -268,3 +336,4 @@ DWConv = partial(DWConvNormAct, norm=None, act=None)
 Conv3x3NormAct = partial(ConvNormAct, k=3)
 Conv1x1NormAct = partial(ConvNormAct, k=1)
 NormActConv3x3 = partial(NormActConv, k=3)
+Conv1x1ActNorm = partial(ConvActNorm, k=1)

@@ -1,6 +1,6 @@
+from legoml.core.callback import Callback, implements
 from legoml.core.context import Context
 from legoml.core.metric import Metric
-from legoml.core.callback import Callback, implements
 from legoml.core.state import EngineState
 from legoml.utils.log import get_logger
 

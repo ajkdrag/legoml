@@ -1,15 +1,16 @@
 from dataclasses import asdict
-from functools import partial
 from pathlib import Path
 
 import torch
-from torch.optim.lr_scheduler import LRScheduler
 
 from experiments.data_utils import create_dataloaders
 from experiments.image_clf.config import Config
 from experiments.image_clf.models import (
-    CNN__MLP_tiny_32x32,
+    ConvMixer_w256_d8_p2_k5,
     ConvNeXt_tiny_32x32,
+    MobileNet_tiny_32x32,
+    Res2NetWide_32x32,
+    ResNetWide_tiny_32x32,
 )
 from experiments.image_clf.steps import eval_step, train_step
 from legoml.callbacks.checkpoint import CheckpointCallback
@@ -20,11 +21,10 @@ from legoml.core.event import Events
 from legoml.core.state import EngineState
 from legoml.metrics.multiclass import MultiClassAccuracy
 from legoml.schedulers.keyframe import (
-    CosineDecay,
+    CosineInterpolation,
     Keyframe,
     KeyframeLR,
-    LinearDecay,
-    ReduceLROnMetricPlateau,
+    LinearInterpolation,
 )
 from legoml.utils.device import get_device
 from legoml.utils.log import get_logger
@@ -39,24 +39,19 @@ set_seed(42)
 device = get_device()
 logger.info("Using device: %s", device.type)
 
-config = Config(train_augmentation=True, max_epochs=60, train_bs=128)
+config = Config(
+    train_augmentation=True,
+    max_epochs=25,
+    train_bs=256,
+    eval_bs=128,
+    train_log_interval=50,
+)
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = CNN__MLP_tiny_32x32()
+model = Res2NetWide_32x32()
 summary = summarize_model(model, next(iter(train_dl)).inputs, depth=2)
 
-# optim stuff
+# eval stuff
 model.to(device)
-init_lr = 0.05
-param_groups = default_groups(model, lr=init_lr, weight_decay=5e-4)
-print_param_groups(model, param_groups)
-
-optimizer = torch.optim.SGD(
-    param_groups,
-    momentum=0.9,
-    nesterov=True,
-)
-
-
 evaluator = Engine(
     eval_step,
     Context(
@@ -72,8 +67,19 @@ evaluator = Engine(
 )
 
 
-# scheduler stuff
-warmup_epochs = 2
+# optim and scheduler stuff
+init_lr = 0.01
+max_lr = 0.3
+total_steps = config.max_epochs * len(train_dl)
+
+param_groups = default_groups(model, lr=init_lr, weight_decay=5e-4)
+print_param_groups(model, param_groups)
+
+optimizer = torch.optim.SGD(
+    param_groups,
+    momentum=0.9,
+    nesterov=True,
+)
 
 
 def sch_best_fn():
@@ -84,30 +90,16 @@ warmup_scheduler = KeyframeLR(
     optimizer=optimizer,
     frames=[
         Keyframe(0, init_lr),
-        CosineDecay(),
-        Keyframe("end", 1.0),
+        LinearInterpolation(),
+        Keyframe((0.1 * total_steps) - 1, max_lr),
+        CosineInterpolation(),
+        Keyframe("end", 1e-3),
     ],
-    end=(warmup_epochs * len(train_dl)) - 1,
+    end=(config.max_epochs * len(train_dl)) - 1,
     units="steps",
 )
 
-plateau_scheduler = KeyframeLR(
-    optimizer=optimizer,
-    frames=[
-        Keyframe(0, 1.0),
-        ReduceLROnMetricPlateau(
-            best_fn=sch_best_fn,
-            patience=1,
-            factor=0.5,
-            min_lr=1e-3,
-            threshold=1e-4,
-            threshold_mode="rel",
-        ),
-        Keyframe("end", 1e-3),
-    ],
-    end=config.max_epochs,
-    units="steps",
-)
+print(warmup_scheduler.schedules)
 
 
 def run_eval(*, context: Context, state: EngineState):
@@ -115,16 +107,9 @@ def run_eval(*, context: Context, state: EngineState):
     logger.info("Evaluation complete", epoch=state.epoch)
 
 
-def warmup_step(*, context: Context, state: EngineState, **kwargs):
-    # since steps and epochs are 1-indexed so need to add 1
+def sched_step(*, context: Context, state: EngineState, **kwargs):
     if state.global_step <= warmup_scheduler.end:
         warmup_scheduler.step()
-
-
-def plateau_step(*, context: Context, state: EngineState):
-    if warmup_epochs <= state.epoch <= plateau_scheduler.end:
-        plateau_scheduler.step()
-        logger.info("Stepped plateau scheduler", epoch=state.epoch)
 
 
 with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
@@ -134,7 +119,7 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
             config=config,
             model=model,
             optimizer=optimizer,
-            loss_fn=torch.nn.CrossEntropyLoss(label_smoothing=0.05),
+            loss_fn=torch.nn.CrossEntropyLoss(label_smoothing=0.1),
             device=device,
             scaler=torch.GradScaler(device=device.type),  # slow on M1 air
         ),
@@ -151,11 +136,7 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
 
     trainer.add_event_handler(
         Events.STEP_END,
-        handler=warmup_step,
-    )
-    trainer.add_event_handler(
-        Events.EPOCH_END,
-        handler=plateau_step,
+        handler=sched_step,
     )
 
     trainer.callbacks += [

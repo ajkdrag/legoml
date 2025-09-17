@@ -102,7 +102,7 @@ class ExponentialDecay:
 
 
 @dataclass(frozen=True)
-class LinearDecay:
+class LinearInterpolation:
     def __call__(
         self,
         last_lr: float,
@@ -119,7 +119,7 @@ class LinearDecay:
 
 
 @dataclass(frozen=True)
-class CosineDecay:
+class CosineInterpolation:
     def __call__(
         self,
         last_lr: float,
@@ -136,9 +136,10 @@ class CosineDecay:
         return cosine_weight * start_frame.lr + (1.0 - cosine_weight) * end_frame.lr
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ReduceLROnMetricPlateau:
     best_fn: Callable[..., float]
+    best_init: float = -float("inf")
     patience: int
     factor: float
     min_lr: float
@@ -158,9 +159,8 @@ class ReduceLROnMetricPlateau:
     ) -> float:
         # init per-scheduler, per-group state
         if group_idx not in self.state:
-            best_init = -float("inf")
             self.state[group_idx] = {
-                "best": best_init,
+                "best": self.best_init,
                 "bad_count": 0,
             }
 
@@ -179,11 +179,16 @@ class ReduceLROnMetricPlateau:
 
         # not improved
         st["bad_count"] += 1
+        logger.warning(
+            "Metric didn't improve.",
+            state=st,
+            group_idx=group_idx,
+        )
 
         if st["bad_count"] > self.patience:
             new_lr = max(last_lr * self.factor, self.min_lr)
             logger.warning(
-                "Metric didn't improve. Updating lr",
+                "Lost patience. Updating lr",
                 state=st,
                 lr=new_lr,
                 group_idx=group_idx,
@@ -246,10 +251,6 @@ class KeyframeLR(LRScheduler):
         single = list(cast(FrameSeq, frames))
         return [single for _ in range(n_groups)]
 
-    @staticmethod
-    def _interpolate(a: float, b: float, t: float) -> float:
-        return (1.0 - t) * a + t * b
-
     def _parse_one_schedule(
         self, user_frames: Sequence[FrameDef], group_idx: int
     ) -> Schedule:
@@ -288,7 +289,7 @@ class KeyframeLR(LRScheduler):
                 frames.append(kf)
             else:
                 # default transition
-                transition = LinearDecay()
+                transition = LinearInterpolation()
 
                 # search first transition between last_kf and kf in the original order
                 start_idx = unpacked.index(cast(ScheduleEntry, last_kf))
@@ -304,7 +305,7 @@ class KeyframeLR(LRScheduler):
             last_kf = kf
 
         if last_kf is not None and last_kf.position < float(end_pos):
-            frames.append(LinearDecay())
+            frames.append(LinearInterpolation())
             frames.append(InternKeyframe(position=float(end_pos), lr=last_kf.lr))
 
         return frames
@@ -372,7 +373,7 @@ class KeyframeLR(LRScheduler):
 def create_linear_schedule(start_lr: float, end_lr: float) -> List[FrameDef]:
     return [
         Keyframe(0, start_lr),
-        LinearDecay(),
+        LinearInterpolation(),
         Keyframe(
             "end",
             end_lr,
@@ -400,12 +401,12 @@ def create_cyclic_schedule(
     cur = 0
     while cur < total_steps:
         frames.append(Keyframe(cur, base_lr))
-        frames.append(LinearDecay())
+        frames.append(LinearInterpolation())
         cur += step_size
         if cur > total_steps:
             break
         frames.append(Keyframe(cur, max_lr))
-        frames.append(LinearDecay())
+        frames.append(LinearInterpolation())
         cur += step_size
     frames.append(Keyframe(total_steps, base_lr))
     return frames

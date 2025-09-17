@@ -33,7 +33,7 @@ def train_step(
     )
 
     # scheduler step is handled explicity via engine event handles
-    backward_and_step(loss, optimizer, scaler=context.scaler)
+    backward_and_step(loss, model, optimizer, scaler=context.scaler)
     log_step(engine, "train", config.train_log_interval)
 
     return StepOutput(
@@ -43,6 +43,7 @@ def train_step(
     )
 
 
+@torch.inference_mode()
 def eval_step(
     engine: Engine, batch: ClassificationBatch, context: Context
 ) -> StepOutput:
@@ -53,11 +54,7 @@ def eval_step(
 
     model.eval()
     inputs, targets = batch.inputs, batch.targets
-
-    with torch.no_grad():
-        outputs, loss = forward_and_compute_loss(
-            model, loss_fn, inputs, targets, device
-        )
+    outputs, loss = forward_and_compute_loss(model, loss_fn, inputs, targets, device)
 
     log_step(engine, "eval", config.eval_log_interval)
 
