@@ -34,13 +34,16 @@ class Engine:
                     **kwargs,
                 )
 
-    def add_event_handler(self, event: Events, handler: Callable[..., None] | Callback):
-        if not isinstance(handler, Callback):
-            callback = Callback()
-            setattr(callback, EVENT_TO_METHOD[event], handler)
-        else:
-            callback = handler
-        self.callbacks.append(callback)
+    def add_event_handlers(
+        self, event: Events, handlers: list[Callable[..., None]] | list[Callback]
+    ):
+        for handler in handlers:
+            if not isinstance(handler, Callback):
+                callback = Callback()
+                setattr(callback, EVENT_TO_METHOD[event], handler)
+            else:
+                callback = handler
+            self.callbacks.append(callback)
 
     def loop(self, dataloader: DataLoader | None = None, max_epochs: int | None = None):
         self.state.max_epochs = max_epochs or self.state.max_epochs

@@ -86,4 +86,4 @@ class Residual(nn.Module):
         return x
 
 
-ResidualAdd = partial(Residual, res_func=lambda x, res: x.add_(res))
+ResidualAdd = partial(Residual, res_func=lambda x, res: x.add(res))

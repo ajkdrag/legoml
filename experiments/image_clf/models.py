@@ -166,7 +166,7 @@ class Res2Net_32x32(nn.Sequential):
         )
         self.head = nn.Sequential(
             GlobalAvgPool2d(),  # [1024]
-            FCNormAct(c_in=1024, c_out=10, act=nn.Identity),
+            nn.Linear(1024, 10),
         )
 
 
@@ -300,5 +300,5 @@ class ConvMixer_w256_d8_p2_k5(nn.Sequential):
 
 if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
-    model = ConvNeXt_tiny_32x32()
+    model = Res2Net_32x32()
     summarize_model(model, dummy_ip, depth=2)

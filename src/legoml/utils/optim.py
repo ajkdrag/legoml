@@ -13,7 +13,7 @@ from typing import (
 
 import torch.nn as nn
 
-from legoml.nn.norm import GRN
+from legoml.nn.norm import GRN, LayerNorm2d
 
 NORM_CLASSES: Tuple[type, ...] = (
     nn.BatchNorm1d,
@@ -27,6 +27,7 @@ NORM_CLASSES: Tuple[type, ...] = (
     nn.InstanceNorm3d,
     nn.LocalResponseNorm,
     GRN,
+    LayerNorm2d,
 )
 
 Predicate = Callable[[str, nn.Parameter, nn.Module], bool]
@@ -153,7 +154,7 @@ def default_groups(
     no_wd_bias: bool = True,
     no_wd_norm: bool = True,
     no_wd_1d: bool = True,
-    no_wd_layer_scale: bool = True,
+    high_lr_layer_scale: bool = True,
 ) -> List[Dict[str, Any]]:
     rules: List[Rule] = []
     if no_wd_bias:
@@ -161,11 +162,11 @@ def default_groups(
     if no_wd_norm:
         rules.append(no_weight_decay_on_norm())
     if no_wd_1d:
-        rules.append(no_weight_decay_on_1d())
-    if no_wd_layer_scale:
+        rules.append(no_weight_decay_on_1d())  # handles layer scale wd as well
+    if high_lr_layer_scale:
         from legoml.nn.ops import LayerScale
 
-        _rule = module_is((LayerScale,), lr=0.1, weight_decay=0.0)
+        _rule = module_is((LayerScale,), lr=lr * 2)
         rules.append(_rule)
     return build_param_groups(
         model, base={"lr": lr, "weight_decay": weight_decay}, rules=rules

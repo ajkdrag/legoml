@@ -6,9 +6,11 @@ import torch
 from experiments.data_utils import create_dataloaders
 from experiments.image_clf.config import Config
 from experiments.image_clf.models import (
+    CNN__MLP_tiny_32x32,
     ConvMixer_w256_d8_p2_k5,
     ConvNeXt_tiny_32x32,
     MobileNet_tiny_32x32,
+    Res2Net_32x32,
     Res2NetWide_32x32,
     ResNetWide_tiny_32x32,
 )
@@ -27,6 +29,7 @@ from legoml.schedulers.keyframe import (
     LinearInterpolation,
 )
 from legoml.utils.device import get_device
+from legoml.utils.ema import ModelEma
 from legoml.utils.log import get_logger
 from legoml.utils.optim import default_groups, print_param_groups
 from legoml.utils.seed import set_seed
@@ -41,22 +44,23 @@ logger.info("Using device: %s", device.type)
 
 config = Config(
     train_augmentation=True,
-    max_epochs=25,
+    max_epochs=70,
     train_bs=256,
     eval_bs=128,
     train_log_interval=50,
 )
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = Res2NetWide_32x32()
+model = Res2Net_32x32()
 summary = summarize_model(model, next(iter(train_dl)).inputs, depth=2)
 
 # eval stuff
 model.to(device)
+ema = ModelEma(model, decay=0.999)
 evaluator = Engine(
     eval_step,
     Context(
         config=config,
-        model=model,
+        model=ema._model,
         loss_fn=torch.nn.CrossEntropyLoss(),
         device=device,
     ),
@@ -95,7 +99,7 @@ warmup_scheduler = KeyframeLR(
         CosineInterpolation(),
         Keyframe("end", 1e-3),
     ],
-    end=(config.max_epochs * len(train_dl)) - 1,
+    end=total_steps - 1,
     units="steps",
 )
 
@@ -103,6 +107,7 @@ print(warmup_scheduler.schedules)
 
 
 def run_eval(*, context: Context, state: EngineState):
+    evaluator.context.model = ema._model
     evaluator.loop()
     logger.info("Evaluation complete", epoch=state.epoch)
 
@@ -129,14 +134,17 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
         ],
     )
 
-    trainer.add_event_handler(
+    trainer.add_event_handlers(
         event=Events.EPOCH_END,
-        handler=run_eval,
+        handlers=[run_eval],
     )
 
-    trainer.add_event_handler(
+    trainer.add_event_handlers(
         Events.STEP_END,
-        handler=sched_step,
+        handlers=[
+            lambda *, context, state, **kwargs: ema.update(trainer.context.model),
+            sched_step,
+        ],
     )
 
     trainer.callbacks += [
@@ -144,7 +152,8 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
             dirpath=sess.get_artifact_dir().joinpath("checkpoints"),
             save_every_n_epochs=config.max_epochs + 5,  # don't save every epoch
             save_on_engine_end=True,
-            best_fn=lambda: evaluator.state.metrics["eval_acc"],
+            save_best=True,
+            value_fn=lambda: evaluator.state.metrics["eval_acc"],
         ),
     ]
 

@@ -19,16 +19,16 @@ class CheckpointCallback(Callback):
         save_every_n_epochs: int = 1,
         save_on_engine_end: bool = True,
         save_best: bool = True,
-        best_fn: Callable[..., float] | None = None,
+        value_fn: Callable[..., float] | None = None,
     ) -> None:
         self.dirpath = Path(dirpath)
         self.prefix = prefix
         self.save_every_n_epochs = max(1, int(save_every_n_epochs))
         self.save_on_engine_end = save_on_engine_end
         self.save_best = save_best
-        self.best_fn = best_fn
+        self.value_fn = value_fn
 
-        if save_best and (best_fn is None):
+        if save_best and (value_fn is None):
             raise ValueError(
                 "If saving best, pass a function that takes the state "
                 + "and gives the value to compare against. "
@@ -48,8 +48,8 @@ class CheckpointCallback(Callback):
         if state.epoch % self.save_every_n_epochs == 0:
             path = self.dirpath / f"{self.prefix}_epoch_{state.epoch}.pt"
             self._save(context, state, path)
-        elif self.save_best and self.best_fn is not None:
-            curr_value = self.best_fn()
+        elif self.save_best and self.value_fn is not None:
+            curr_value = self.value_fn()
             if curr_value > self.best_value:
                 path = self.dirpath / f"{self.prefix}_best.pt"
                 self._save(context, state, path)
