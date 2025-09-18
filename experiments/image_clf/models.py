@@ -82,57 +82,35 @@ class ConvNeXt_tiny_32x32(nn.Sequential):
         )
 
 
-class ConvNeXt_SE_32x32(nn.Sequential):
+class ConvNeXt_2x2_stem(nn.Sequential):
     def __init__(self, c_in=3):
         super().__init__()
-        Conv1x1SECtor = partial(ApplyAfterCtor, main=Conv1x1)
-
-        self.stem = nn.Sequential(
-            Conv3x3NormAct(c_in=c_in, c_out=32),  # [32, 32, 32]
+        self.stem = nn.Sequential(ConvMixerStem(c_in=c_in, c_out=64, k=2, s=2))
+        blk = partial(
+            ConvNextV2Block,
+            block3=partial(
+                NormActConv,
+                k=1,
+                # norm=partial(GRN, gamma_init=0.0, beta_init=0.0),
+                norm=nn.BatchNorm2d,
+                act=None,
+            ),
         )
         self.backbone = nn.Sequential(
-            ConvNeXtBlock(
-                c_in=32,
-                c_out=32,
-                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=32)),
-            ),  # [32, 32, 32]
-            ConvNeXtBlock(
-                c_in=32,
-                c_out=32,
-                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=32)),
-            ),  # [32, 32, 32]
-            ConvNeXtDownsample(c_in=32, c_out=64, s=2),  # [64, 16, 16]
-            ConvNeXtBlock(
-                c_in=64,
-                c_out=64,
-                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=64)),
-            ),  # [64, 16, 16]
-            ConvNeXtBlock(
-                c_in=64,
-                c_out=64,
-                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=64)),
-            ),  # [64, 16, 16]
-            ConvNeXtBlock(
-                c_in=64,
-                c_out=64,
-                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=64)),
-            ),  # [64, 16, 16]
-            ConvNeXtBlock(
-                c_in=64,
-                c_out=64,
-                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=64)),
-            ),  # [64, 16, 16]
+            blk(c_in=64, c_out=64),  # [64, 16, 16]
+            blk(c_in=64, c_out=64),  # [64, 16, 16]
+            blk(c_in=64, c_out=64),  # [64, 16, 16]
+            blk(c_in=64, c_out=64),  # [64, 16, 16]
+            blk(c_in=64, c_out=64),  # [64, 16, 16]
+            blk(c_in=64, c_out=64),  # [64, 16, 16]
             ConvNeXtDownsample(c_in=64, c_out=128, s=2),  # [128, 8, 8]
-            ConvNeXtBlock(
-                c_in=128,
-                c_out=128,
-                block3=Conv1x1SECtor(after=partial(SEAttention, c_in=128)),
-            ),  # [128, 8, 8]
+            blk(c_in=128, c_out=128),  # [128, 8, 8]
+            blk(c_in=128, c_out=128),  # [128, 8, 8]
         )
         self.head = nn.Sequential(
             GlobalAvgPool2d(),  # [128]
             nn.LayerNorm(128),
-            FCNormAct(c_in=128, c_out=10, norm=None, act=None),
+            nn.Linear(128, 10),
         )
 
 

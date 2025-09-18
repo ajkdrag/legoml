@@ -44,7 +44,7 @@ logger.info("Using device: %s", device.type)
 
 config = Config(
     train_augmentation=True,
-    max_epochs=70,
+    max_epochs=25,
     train_bs=256,
     eval_bs=128,
     train_log_interval=50,

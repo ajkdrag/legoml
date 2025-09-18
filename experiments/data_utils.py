@@ -96,6 +96,9 @@ def create_cifar10_loaders(
         batch_size=config.train_bs,
         shuffle=True,
         collate_fn=collate_fn,
+        num_workers=config.num_workers,
+        persistent_workers=config.persistent_workers,
+        pin_memory=config.num_workers > 0,
         drop_last=True,
     )
     eval_loader = DataLoader(
@@ -103,6 +106,9 @@ def create_cifar10_loaders(
         batch_size=config.eval_bs,
         shuffle=False,
         collate_fn=collate_fn,
+        num_workers=config.num_workers,
+        persistent_workers=config.persistent_workers,
+        pin_memory=config.num_workers > 0,
     )
 
     logger.info(

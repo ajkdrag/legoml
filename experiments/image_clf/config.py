@@ -10,3 +10,5 @@ class Config:
     train_log_interval: int = 100  # steps
     eval_log_interval: int = 100  # steps
     data_root: str = "./raw_data"
+    num_workers: int = 1
+    persistent_workers: bool = False
