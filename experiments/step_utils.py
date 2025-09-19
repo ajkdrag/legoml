@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.optim.optimizer import Optimizer
+from torch.utils.data.dataloader import DataLoader
 
 from legoml.core.engine import Engine
 from legoml.utils.log import get_logger

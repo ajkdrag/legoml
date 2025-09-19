@@ -50,7 +50,7 @@ class CheckpointCallback(Callback):
             self._save(context, state, path)
         elif self.save_best and self.value_fn is not None:
             curr_value = self.value_fn()
-            if curr_value > self.best_value:
+            if curr_value is not None and curr_value > self.best_value:
                 path = self.dirpath / f"{self.prefix}_best.pt"
                 self._save(context, state, path)
                 logger.info(
@@ -65,7 +65,8 @@ class CheckpointCallback(Callback):
         path = self.dirpath / f"{self.prefix}_last.pt"
         self._save(context, state, path)
 
-    def _save(self, context: Context, state: EngineState, path: Path) -> None:
+    @staticmethod
+    def _save(context: Context, state: EngineState, path: Path) -> None:
         state_dict: Dict[str, Any] = {
             "epoch": state.epoch,
             "global_step": state.global_step,

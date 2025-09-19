@@ -3,10 +3,8 @@ from functools import partial
 import torch
 import torch.nn as nn
 
-from legoml.nn.attention import SEAttention
-from legoml.nn.contrib.convmixer import ConvMixerBlock, ConvMixerStem
+from legoml.nn.contrib.convmixer import ConvMixerBlock, ConvMixerStem, SAConvMixerStem
 from legoml.nn.contrib.convnext import (
-    ConvNeXtBlock,
     ConvNeXtDownsample,
     ConvNextV2Block,
 )
@@ -19,11 +17,9 @@ from legoml.nn.contrib.resnet import (
     ResNetPreActBlock,
     ResNetPreActBlock_S2D_SE,
 )
-from legoml.nn.conv import Conv1x1, Conv3x3NormAct, NormActConv
+from legoml.nn.conv import Conv3x3NormAct, NormActConv
 from legoml.nn.mlp import FCNormAct
-from legoml.nn.norm import GRN, LayerNorm2d
 from legoml.nn.pool import GlobalAvgPool2d
-from legoml.nn.struct import ApplyAfterCtor
 from legoml.utils.summary import summarize_model
 
 
@@ -102,14 +98,13 @@ class ConvNeXt_2x2_stem(nn.Sequential):
             blk(c_in=64, c_out=64),  # [64, 16, 16]
             blk(c_in=64, c_out=64),  # [64, 16, 16]
             blk(c_in=64, c_out=64),  # [64, 16, 16]
-            blk(c_in=64, c_out=64),  # [64, 16, 16]
             ConvNeXtDownsample(c_in=64, c_out=128, s=2),  # [128, 8, 8]
             blk(c_in=128, c_out=128),  # [128, 8, 8]
             blk(c_in=128, c_out=128),  # [128, 8, 8]
         )
         self.head = nn.Sequential(
             GlobalAvgPool2d(),  # [128]
-            nn.LayerNorm(128),
+            # nn.LayerNorm(128),
             nn.Linear(128, 10),
         )
 
@@ -257,7 +252,7 @@ class ConvMixer_w256_d8_p2_k5(nn.Sequential):
     def __init__(self, c_in=3):
         super().__init__()
         self.stem = nn.Sequential(
-            ConvMixerStem(c_in=c_in, c_out=256, k=2, s=2),  # [256, 16, 16]
+            ConvMixerStem(c_in=c_in, c_out=256, patch_sz=2),  # [256, 16, 16]
         )
         blk = partial(ConvMixerBlock, c_in=256, c_out=256, k=5)
         self.backbone = nn.Sequential(
@@ -278,5 +273,5 @@ class ConvMixer_w256_d8_p2_k5(nn.Sequential):
 
 if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
-    model = Res2Net_32x32()
+    model = ConvMixer_w256_d8_p2_k5()
     summarize_model(model, dummy_ip, depth=2)

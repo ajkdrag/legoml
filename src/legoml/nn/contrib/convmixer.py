@@ -4,14 +4,38 @@ import torch.nn as nn
 
 from legoml.nn.contrib.resnet import ResNetDShortcut
 from legoml.nn.conv import Conv1x1ActNorm, ConvActNorm, DWConvActNorm
+from legoml.nn.ops import SpaceToDepth
 from legoml.nn.struct import ResidualAdd
 from legoml.nn.types import ModuleCtor
 
-ConvMixerStem = partial(
-    ConvActNorm,
-    act=nn.GELU,
-)
-"""k and s supposed to be same for stem and even"""
+
+class ConvMixerStem(nn.Sequential):
+    def __init__(
+        self,
+        *,
+        c_in: int,
+        c_out: int | None = None,
+        patch_sz: int,
+        conv: ModuleCtor = partial(ConvActNorm, act=nn.GELU),
+    ):
+        super().__init__()
+        c_out = c_out or c_in
+        self.conv = conv(c_in=c_in, c_out=c_out, k=patch_sz, s=patch_sz)
+
+
+class SAConvMixerStem(nn.Sequential):
+    def __init__(
+        self,
+        *,
+        c_in: int,
+        c_out: int | None = None,
+        patch_sz: int,
+        conv: ModuleCtor = partial(Conv1x1ActNorm, act=nn.GELU),
+    ):
+        super().__init__()
+        c_out = c_out or c_in
+        self.s2d = SpaceToDepth(f_reduce=patch_sz)
+        self.conv = conv(c_in=c_in * (patch_sz**2), c_out=c_out)
 
 
 class ConvMixerBlock(nn.Sequential):

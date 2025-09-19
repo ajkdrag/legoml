@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+
 import torch
 
 from legoml.core.metric import Metric

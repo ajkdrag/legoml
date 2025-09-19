@@ -10,5 +10,7 @@ class Config:
     train_log_interval: int = 100  # steps
     eval_log_interval: int = 100  # steps
     data_root: str = "./raw_data"
-    num_workers: int = 1
+    num_workers: int = 0
     persistent_workers: bool = False
+    eval_interval: int = 1  # epochs
+    eval_ema_interval: int = 5  # epochs

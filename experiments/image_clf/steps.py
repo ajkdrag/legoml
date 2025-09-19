@@ -1,4 +1,7 @@
+from typing import cast
 import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
 
 from experiments.image_clf.config import Config
 from experiments.step_utils import (
@@ -6,6 +9,7 @@ from experiments.step_utils import (
     forward_and_compute_loss,
     log_step,
 )
+from legoml.core.constants import Device
 from legoml.core.context import Context
 from legoml.core.engine import Engine
 from legoml.core.step_output import StepOutput
@@ -63,3 +67,38 @@ def eval_step(
         predictions=outputs.detach().cpu(),
         targets=targets.detach().cpu(),
     )
+
+
+@torch.no_grad()
+def update_bn(
+    *,
+    model: nn.Module,
+    dl: DataLoader,
+    device: torch.device,
+    max_batches: int,
+):
+    """Adapted from PyTorch impl of update_bn"""
+    momenta = {}
+    for module in model.modules():
+        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+            module.reset_running_stats()
+            momenta[module] = module.momentum
+
+    if not momenta:
+        return
+
+    was_training = model.training
+    model.train()
+    for module in momenta.keys():
+        module.momentum = None
+
+    for idx, batch in enumerate(dl):
+        if idx >= max_batches:
+            break
+        batch = cast(ClassificationBatch, batch)
+        inputs = batch.inputs
+        model(inputs.to(device, non_blocking=True))
+
+    for bn_module in momenta.keys():
+        bn_module.momentum = momenta[bn_module]
+    model.train(was_training)

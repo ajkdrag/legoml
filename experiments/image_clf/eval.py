@@ -5,7 +5,7 @@ import torch
 
 from experiments.data_utils import create_dataloaders
 from experiments.image_clf.config import Config
-from experiments.image_clf.models import ConvNeXt_SE_32x32
+from experiments.image_clf.models import CNN__MLP_tiny_32x32
 from experiments.image_clf.steps import eval_step
 from legoml.callbacks.metric import MetricsCallback
 from legoml.core.context import Context
@@ -30,7 +30,7 @@ config = Config(max_epochs=1)
 
 
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = ConvNeXt_SE_32x32()
+model = CNN__MLP_tiny_32x32()
 summary = summarize_model(model, next(iter(eval_dl)).inputs, depth=2)
 model.to(device)
 
@@ -49,11 +49,14 @@ with run(base_dir=Path("runs").joinpath("eval_img_clf_cifar10")) as sess:
         ],
     )
 
-    checkpoint_path = "./runs/train_img_clf_cifar10/run_20250907_183510/artifacts/checkpoints/ckpt_best.pt"
+    checkpoint_path = (
+        "./runs/train_img_clf_cifar10/"
+        "run_20250919_104925/artifacts/checkpoints/ema_ckpt_best.pt"
+    )
 
     evaluator.load_checkpoint(checkpoint_path=checkpoint_path)
     evaluator.state.reset()
-    evaluator.loop(train_dl, max_epochs=config.max_epochs)
+    evaluator.loop(eval_dl, max_epochs=config.max_epochs)
     sess.log_params({"exp_config": asdict(config)})
     sess.log_text("model", f"{summary}\n\n{model}")
     sess.log_params({"evaluator": evaluator.to_dict()})

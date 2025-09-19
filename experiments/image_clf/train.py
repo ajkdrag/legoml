@@ -1,4 +1,6 @@
 from dataclasses import asdict
+from functools import partial
+from math import inf
 from pathlib import Path
 
 import torch
@@ -8,13 +10,14 @@ from experiments.image_clf.config import Config
 from experiments.image_clf.models import (
     CNN__MLP_tiny_32x32,
     ConvMixer_w256_d8_p2_k5,
+    ConvNeXt_2x2_stem,
     ConvNeXt_tiny_32x32,
     MobileNet_tiny_32x32,
     Res2Net_32x32,
     Res2NetWide_32x32,
     ResNetWide_tiny_32x32,
 )
-from experiments.image_clf.steps import eval_step, train_step
+from experiments.image_clf.steps import eval_step, train_step, update_bn
 from legoml.callbacks.checkpoint import CheckpointCallback
 from legoml.callbacks.metric import MetricsCallback
 from legoml.core.context import Context
@@ -44,13 +47,15 @@ logger.info("Using device: %s", device.type)
 
 config = Config(
     train_augmentation=True,
-    max_epochs=25,
+    max_epochs=100,
     train_bs=256,
     eval_bs=128,
     train_log_interval=50,
+    eval_interval=2,
+    eval_ema_interval=5,
 )
 train_dl, eval_dl = create_dataloaders("cifar10", config, "classification")
-model = Res2Net_32x32()
+model = ConvMixer_w256_d8_p2_k5()
 summary = summarize_model(model, next(iter(train_dl)).inputs, depth=2)
 
 # eval stuff
@@ -60,7 +65,7 @@ evaluator = Engine(
     eval_step,
     Context(
         config=config,
-        model=ema._model,
+        model=model,
         loss_fn=torch.nn.CrossEntropyLoss(),
         device=device,
     ),
@@ -70,13 +75,27 @@ evaluator = Engine(
     ],
 )
 
+ema_evaluator = Engine(
+    eval_step,
+    Context(
+        config=config,
+        model=ema._model,
+        loss_fn=torch.nn.CrossEntropyLoss(),
+        device=device,
+    ),
+    state=EngineState(max_epochs=1, dataloader=eval_dl),
+    callbacks=[
+        MetricsCallback(metrics=[MultiClassAccuracy("ema_eval_acc")]),
+    ],
+)
+
 
 # optim and scheduler stuff
 init_lr = 0.01
 max_lr = 0.3
 total_steps = config.max_epochs * len(train_dl)
 
-param_groups = default_groups(model, lr=init_lr, weight_decay=5e-4)
+param_groups = default_groups(model, lr=init_lr, weight_decay=0.001)
 print_param_groups(model, param_groups)
 
 optimizer = torch.optim.SGD(
@@ -90,7 +109,7 @@ def sch_best_fn():
     return evaluator.state.metrics["eval_acc"]
 
 
-warmup_scheduler = KeyframeLR(
+scheduler = KeyframeLR(
     optimizer=optimizer,
     frames=[
         Keyframe(0, init_lr),
@@ -103,18 +122,56 @@ warmup_scheduler = KeyframeLR(
     units="steps",
 )
 
-print(warmup_scheduler.schedules)
+logger.info(scheduler.schedules)
 
 
 def run_eval(*, context: Context, state: EngineState):
-    evaluator.context.model = ema._model
-    evaluator.loop()
-    logger.info("Evaluation complete", epoch=state.epoch)
+    if state.epoch % config.eval_interval == 0:
+        evaluator.loop()
+        logger.info("Evaluation complete", epoch=state.epoch)
+
+
+def run_ema_eval(*, context: Context, state: EngineState, dirpath: str | Path):
+    if (
+        state.epoch > int(config.max_epochs * 0.25)
+        and state.epoch % config.eval_ema_interval == 0
+    ):
+        update_bn(
+            model=ema._model,
+            dl=train_dl,
+            device=device,
+            max_batches=len(train_dl),
+        )
+        ema_evaluator.loop()
+        logger.info("EMA Evaluation complete", epoch=state.epoch)
+
+        # Saving if better than eval metric
+        ema_eval_metric = ema_evaluator.state.metrics["ema_eval_acc"]
+        eval_metric = evaluator.state.metrics.get("eval_acc", float(-inf))
+        if ema_eval_metric > eval_metric:
+            logger.info(f"{ema_eval_metric=} is better. Checkpointing...")
+            CheckpointCallback._save(
+                context=ema_evaluator.context,
+                state=ema_evaluator.state,
+                path=Path(dirpath) / "ema_ckpt_best.pt",
+            )
+
+
+def ema_copy(*, context: Context, state: EngineState, **kwargs):
+    if state.epoch == int(config.max_epochs * 0.25):
+        logger.warning("Copying model for EMA...")
+        ema.copy(context.model)
+        ema_evaluator.context.model = ema._model
+
+
+def ema_update(*, context: Context, state: EngineState, **kwargs):
+    if state.epoch > int(config.max_epochs * 0.25):
+        ema.update(model=context.model)
 
 
 def sched_step(*, context: Context, state: EngineState, **kwargs):
-    if state.global_step <= warmup_scheduler.end:
-        warmup_scheduler.step()
+    if state.global_step <= scheduler.end:
+        scheduler.step()
 
 
 with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
@@ -135,15 +192,21 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
     )
 
     trainer.add_event_handlers(
-        event=Events.EPOCH_END,
-        handlers=[run_eval],
+        Events.STEP_END,
+        handlers=[
+            ema_update,
+            sched_step,
+        ],
     )
 
     trainer.add_event_handlers(
-        Events.STEP_END,
+        event=Events.EPOCH_END,
         handlers=[
-            lambda *, context, state, **kwargs: ema.update(trainer.context.model),
-            sched_step,
+            run_eval,
+            ema_copy,
+            partial(
+                run_ema_eval, dirpath=sess.get_artifact_dir().joinpath("checkpoints")
+            ),
         ],
     )
 
@@ -151,9 +214,9 @@ with run(base_dir=Path("runs").joinpath("train_img_clf_cifar10")) as sess:
         CheckpointCallback(
             dirpath=sess.get_artifact_dir().joinpath("checkpoints"),
             save_every_n_epochs=config.max_epochs + 5,  # don't save every epoch
-            save_on_engine_end=True,
+            save_on_engine_end=False,
             save_best=True,
-            value_fn=lambda: evaluator.state.metrics["eval_acc"],
+            value_fn=lambda: evaluator.state.metrics.get("eval_acc", float(-inf)),
         ),
     ]
 
