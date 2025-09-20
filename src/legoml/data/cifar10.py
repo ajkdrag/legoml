@@ -65,13 +65,13 @@ def get_train_tfms_alb(cfg: CIFAR10Config):
 def get_train_tfms_tv(cfg: CIFAR10Config):
     return transforms.Compose(
         [
-            transforms.RandomResizedCrop(32, scale=(0.75, 1.0), ratio=(1.0, 1.0)),
+            transforms.RandomResizedCrop(32, scale=(1.0, 1.0), ratio=(1.0, 1.0)),
             transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandAugment(num_ops=1, magnitude=8),
-            transforms.ColorJitter(0.1, 0.1, 0.1),
+            transforms.RandAugment(num_ops=2, magnitude=12),
+            transforms.ColorJitter(0.2, 0.2, 0.2),
             transforms.ToTensor(),
             transforms.Normalize(cfg.means, cfg.stds),
-            transforms.RandomErasing(p=0.25),
+            transforms.RandomErasing(p=0.2),
         ]
     )
 
@@ -112,16 +112,16 @@ class Cifar10AlbumentationsDataset(datasets.CIFAR10):
 
 def build_cifar10(cfg: CIFAR10Config) -> Dataset:
     tfms_fn = (
-        get_eval_tfms_alb
+        get_eval_tfms_tv
         if (not cfg.augment or cfg.split == "test")
-        else get_train_tfms_alb
+        else get_train_tfms_tv
     )
 
     tfms = tfms_fn(cfg)
 
     logger.info("Using transforms: %s", tfms)
 
-    return Cifar10AlbumentationsDataset(
+    return datasets.CIFAR10(
         root=cfg.data_root,
         train=(cfg.split == "train"),
         download=cfg.download,

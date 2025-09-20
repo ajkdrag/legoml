@@ -3,7 +3,7 @@ from functools import partial
 import torch
 import torch.nn as nn
 
-from legoml.nn.contrib.convmixer import ConvMixerBlock, ConvMixerStem
+from legoml.nn.contrib.convmixer import ConvMixerBlock, ConvMixerStem, SAConvMixerStem
 from legoml.nn.contrib.convnext import (
     ConvNeXtDownsample,
     ConvNextV2Block,
@@ -255,7 +255,7 @@ class ConvMixer_w256_d8_p2_k5(nn.Sequential):
     def __init__(self, c_in=3):
         super().__init__()
         self.stem = nn.Sequential(
-            ConvMixerStem(c_in=c_in, c_out=256, patch_sz=2),  # [256, 16, 16]
+            SAConvMixerStem(c_in=c_in, c_out=256, patch_sz=2),  # [256, 16, 16]
         )
         blk = partial(ConvMixerBlock, c_in=256, c_out=256, k=5)
         self.backbone = nn.Sequential(

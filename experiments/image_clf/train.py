@@ -95,16 +95,16 @@ init_lr = 0.01  # SGD: 0.01, AdamW: 0.001
 max_lr = 0.3  # SGD: 0.3, AdamW: 0.02
 total_steps = config.max_epochs * len(train_dl)
 
-param_groups = default_groups(model, lr=init_lr, weight_decay=0.001)
+param_groups = default_groups(model, lr=init_lr, weight_decay=5e-4)
 print_param_groups(model, param_groups)
 
-# optimizer = torch.optim.SGD(
-#     param_groups,
-#     momentum=0.9,
-#     nesterov=True,
-# )
+optimizer = torch.optim.SGD(
+    param_groups,
+    momentum=0.9,
+    nesterov=True,
+)
 
-optimizer = torch.optim.AdamW(param_groups)
+# optimizer = torch.optim.AdamW(param_groups)
 
 
 def sch_best_fn():
