@@ -1319,6 +1319,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "albumentations" },
+    { name = "colorama" },
     { name = "einops" },
     { name = "matplotlib" },
     { name = "structlog" },
@@ -1337,6 +1338,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "albumentations", specifier = ">=2.0.8" },
+    { name = "colorama", specifier = ">=0.4.6" },
     { name = "einops", specifier = ">=0.8.1" },
     { name = "matplotlib", specifier = ">=3.10.5" },
     { name = "structlog", specifier = ">=25.4.0" },

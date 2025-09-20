@@ -3,7 +3,7 @@ from functools import partial
 import torch
 import torch.nn as nn
 
-from legoml.nn.contrib.convmixer import ConvMixerBlock, ConvMixerStem, SAConvMixerStem
+from legoml.nn.contrib.convmixer import ConvMixerBlock, ConvMixerStem
 from legoml.nn.contrib.convnext import (
     ConvNeXtDownsample,
     ConvNextV2Block,
@@ -20,7 +20,10 @@ from legoml.nn.contrib.resnet import (
 from legoml.nn.conv import Conv3x3NormAct, NormActConv
 from legoml.nn.mlp import FCNormAct
 from legoml.nn.pool import GlobalAvgPool2d
+from legoml.utils.log import get_logger
 from legoml.utils.summary import summarize_model
+
+logger = get_logger(__name__)
 
 
 class CNN__MLP_tiny_32x32(nn.Sequential):
@@ -273,5 +276,6 @@ class ConvMixer_w256_d8_p2_k5(nn.Sequential):
 
 if __name__ == "__main__":
     dummy_ip = torch.randn(1, 3, 32, 32)
+    logger.info("Summarizing model ...", color="green")
     model = ConvMixer_w256_d8_p2_k5()
     summarize_model(model, dummy_ip, depth=2)
